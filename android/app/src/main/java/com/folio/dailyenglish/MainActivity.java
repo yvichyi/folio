@@ -124,7 +124,7 @@ public final class MainActivity extends Activity {
         brand.setTextColor(INK);
         errorView.addView(brand);
         TextView explanation = new TextView(this);
-        explanation.setText("暂时无法加载每日英语外刊。\\n请检查网络连接，或确认 GitHub Pages 已发布。");
+        explanation.setText("暂时无法加载每日英语外刊。\n请检查网络连接，或确认 GitHub Pages 已发布。");
         explanation.setTextSize(15);
         explanation.setGravity(Gravity.CENTER);
         explanation.setTextColor(Color.rgb(107, 120, 110));
