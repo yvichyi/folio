@@ -30,6 +30,37 @@ adb shell screencap -p /sdcard/folio-home.png
 adb pull /sdcard/folio-home.png native-witness/home.png
 adb shell uiautomator dump /sdcard/folio-ui.xml
 adb pull /sdcard/folio-ui.xml native-witness/home-ui.xml
+# Motion witness: record real native pixels through article-open, back, tab-change and return.
+# Keep Android animation scales nonzero; static screenshots do not validate transitions.
+adb shell settings put global animator_duration_scale 1.0
+adb shell settings put global transition_animation_scale 1.0
+adb shell settings put global window_animation_scale 1.0
+adb shell screenrecord --time-limit 7 --bit-rate 2600000 /sdcard/folio-navigation-motion.mp4 > /dev/null 2>&1 &
+RECORD_PID=$!
+sleep 1
+python3 - <<'PY'
+import xml.etree.ElementTree as ET,re,subprocess,time
+root=ET.parse('native-witness/home-ui.xml').getroot()
+def tap(node):
+    points=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
+    if len(points)!=4: raise SystemExit('Missing UI bounds')
+    subprocess.run(['adb','shell','input','tap',str((points[0]+points[2])//2),
+                    str((points[1]+points[3])//2)],check=True)
+first=next((n for n in root.iter('node') if n.attrib.get('content-desc','').startswith('阅读 ')),None)
+words=next((n for n in root.iter('node') if n.attrib.get('content-desc','')=='生词选项卡'),None)
+home=next((n for n in root.iter('node') if n.attrib.get('content-desc','')=='今日选项卡'),None)
+if first is None or words is None or home is None: raise SystemExit('Motion capture target unavailable')
+tap(first)
+time.sleep(.8)
+subprocess.run(['adb','shell','input','keyevent','KEYCODE_BACK'],check=True)
+time.sleep(.8)
+tap(words)
+time.sleep(.8)
+tap(home)
+time.sleep(.8)
+PY
+wait "$RECORD_PID"
+adb pull /sdcard/folio-navigation-motion.mp4 native-witness/navigation-motion.mp4
 # End-to-end native journey: open story -> bookmark -> return -> find it in Library.
 python3 - <<'PY'
 import xml.etree.ElementTree as ET,re,subprocess
