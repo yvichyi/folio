@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <set xmlns:android="http://schemas.android.com/apk/res/android"
-    android:interpolator="@android:interpolator/decelerate_interpolator"
+    android:interpolator="@interpolator/folio_soft_out"
     android:shareInterpolator="true">
     <translate android:fromYDelta="100%" android:toYDelta="0%"
         android:duration="260"/>
