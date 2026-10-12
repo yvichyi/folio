@@ -62,6 +62,7 @@ public final class MainActivity extends Activity {
     private static final Typeface SANS_MED=Typeface.create("sans-serif-medium",Typeface.NORMAL);
     private static final Pattern WORD_PATTERN=Pattern.compile("[A-Za-z][A-Za-z'-]*");
     private FeedRepository feed;
+    private ArticleArchive archive;
     private LearningStore learning;
     private TextToSpeech speech;
     private ExecutorService lookup=Executors.newSingleThreadExecutor();
@@ -81,6 +82,9 @@ public final class MainActivity extends Activity {
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         learning=new LearningStore(this);
         feed=new FeedRepository(this);
+        archive=new ArticleArchive(this);
+        // Migrate the existing cached issue and any bundled seed into the permanent archive.
+        archive.ingest(feed.articles);
         render();
         if(!feed.hasCache)refresh();
         else if(System.currentTimeMillis()-feed.lastSync>15*60*1000L)refresh();
@@ -232,7 +236,9 @@ public final class MainActivity extends Activity {
     private void refresh(){
         if(busy)return;busy=true;
         feed.refresh((success,message)->{
-            busy=false;setStatus(message);
+            busy=false;
+            if(success) archive.ingest(feed.articles);
+            setStatus(message);
             if(reading==null)render();
         });
     }
@@ -342,20 +348,33 @@ public final class MainActivity extends Activity {
     }
     private void library(){
         ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
-        col.addView(top("YOUR LIBRARY","收藏与历史","为真正值得反复阅读的文章留一个位置。"));
+        col.addView(top("YOUR LIBRARY","收藏与历史","日报会更新，你读过和收藏的文章不会消失。"));
+        List<FeedRepository.Article> history=archive.all();
+        TextView index=caption("已归档 "+history.size()+" 篇文章  ·  保存在本机");
+        col.addView(index);gap(col,23);
         sectionLabel(col,"已收藏的文章");
         int count=0;
-        for(FeedRepository.Article a:feed.articles){
+        for(FeedRepository.Article a:history){
             if(learning.isBookmarked(a.url)){articleCard(col,a,false);gap(col,12);count++;}
         }
         if(count==0)empty(col,"还没有收藏","在阅读页面点击右上角的收藏标记，文章会留在这里。","去发现文章",()->switchTab(0));
-        gap(col,22);sectionLabel(col,"阅读完成");
+        gap(col,23);sectionLabel(col,"阅读完成");
         int completed=0;
-        for(FeedRepository.Article a:feed.articles)if(learning.isRead(a.url)){
+        for(FeedRepository.Article a:history)if(learning.isRead(a.url)){
             TextView t=action("✓  "+a.title,false,()->openArticle(a));
-            t.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);t.setMaxLines(2);col.addView(t,lp(-1,-2));gap(col,8);completed++;
+            t.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);t.setMaxLines(2);
+            col.addView(t,lp(-1,-2));gap(col,9);completed++;
         }
         if(completed==0)col.addView(text("读完文章后点击「完成本篇」，就能留下阅读记录。",13,MUTED,SANS));
+        gap(col,27);sectionLabel(col,"往期外刊");
+        int previous=0;
+        for(FeedRepository.Article a:history){
+            boolean current=false;
+            for(FeedRepository.Article issue:feed.articles)if(issue.url.equals(a.url)){current=true;break;}
+            if(current || learning.isRead(a.url)||learning.isBookmarked(a.url))continue;
+            articleCard(col,a,false);gap(col,12);previous++;
+        }
+        if(previous==0)col.addView(text("这里将保存今后每一期已经同步的文章。",13,MUTED,SANS));
     }
     private void sectionLabel(LinearLayout col,String value){
         col.addView(text(value,22,INK,SERIF_BOLD));gap(col,16);
@@ -465,7 +484,10 @@ public final class MainActivity extends Activity {
             startActivity(Intent.createChooser(send,"导出 Folio 生词数据"));
         }catch(Exception e){setStatus("导出失败");}
     }
-    private void openArticle(FeedRepository.Article a){reading=a;render();}
+    private void openArticle(FeedRepository.Article a){
+        archive.ingest(java.util.Collections.singletonList(a));
+        reading=a;render();
+    }
     private void renderReader(){
         LinearLayout toolbar=row();pad(toolbar,15,9,16,9);
         toolbar.setBackgroundColor(BG);
@@ -702,6 +724,6 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onDestroy(){
         if(speech!=null){speech.stop();speech.shutdown();}
-        feed.close();lookup.shutdownNow();super.onDestroy();
+        feed.close();archive.close();lookup.shutdownNow();super.onDestroy();
     }
 }
