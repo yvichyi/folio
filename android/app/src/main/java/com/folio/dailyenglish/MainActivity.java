@@ -257,7 +257,10 @@ public final class MainActivity extends Activity {
             busy=false;
             if(success) archive.ingest(feed.articles);
             setStatus(message);
-            if(reading==null)render();
+            if(reading==null){
+                if(success)nextMotion=4;
+                render();
+            }
         });
     }
     private String dateText(){
@@ -741,6 +744,7 @@ public final class MainActivity extends Activity {
             params.dimAmount=.37f;
             window.setAttributes(params);
             window.setNavigationBarColor(BG);
+            if(FolioMotion.enabled())window.setWindowAnimations(R.style.FolioSheetAnimation);
         }
         sheet.show();
         window=sheet.getWindow();
