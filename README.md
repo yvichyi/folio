@@ -26,7 +26,11 @@ The separately delivered Folio Android v0.2 source includes a cloud-feed setting
 3. Paste `https://raw.githubusercontent.com/yvichyi/folio/main/docs/feed/daily.json` and save.
 4. Tap **获取最新**. Future content updates use the same URL without installing a new APK.
 
-The complete Android application source and APK build workflow are **not yet uploaded to this repository**. This repository currently hosts the live editorial feed, validation workflow, and a web-reading client. Do not assume an APK has been built.
+An installable minimal Android client has now been added under [android/](android/). It wraps the same GitHub Pages reading site in an Android WebView with external media links opened in the system browser.
+
+[Build Folio Android Preview](../../actions/workflows/android.yml) runs only when the Android project or its build workflow changes, **not when daily article data changes**. Once the build completes successfully, download the `folio-android-preview-apk` artifact ZIP and extract `app-debug.apk`. The APK is a debug preview, not a production release; stable production signing must be configured before distributing updates. The full-featured earlier v0.2.1 source package is separate and has not been migrated into this minimal connected client.
+
+**A pushed workflow is not evidence of a successful APK build.** Check the GitHub Actions status before installing.
 
 ### Publishing process
 
