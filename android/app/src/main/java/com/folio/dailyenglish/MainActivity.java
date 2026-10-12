@@ -163,9 +163,20 @@ public final class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // The reading overlay is a single-page view; let its back button handle closing.
-        if (browser.canGoBack()) browser.goBack();
-        else super.onBackPressed();
+        if (browser == null) {
+            super.onBackPressed();
+            return;
+        }
+        browser.evaluateJavascript(
+                "(function(){var p=document.getElementById('overlay');"
+                        + "if(p&&p.classList.contains('open')){"
+                        + "document.getElementById('back').click();return true;}"
+                        + "return false;})()",
+                result -> {
+                    if ("true".equals(result)) return;
+                    if (browser != null && browser.canGoBack()) browser.goBack();
+                    else MainActivity.super.onBackPressed();
+                });
     }
 
     @Override
