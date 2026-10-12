@@ -3,8 +3,9 @@ on:
   push:
     branches: [main]
     paths:
-      - docs/feed/**
-      - scripts/validate-content.cjs
+      - 'docs/**'
+      - 'scripts/validate-content.cjs'
+      - 'scripts/check-frontend.cjs'
       - .github/workflows/content.yml
   pull_request:
     paths:
@@ -24,3 +25,5 @@ jobs:
           node-version: '22'
       - name: Validate online JSON feed
         run: node scripts/validate-content.cjs
+      - name: Validate frontend JavaScript and navigation contracts
+        run: node scripts/check-frontend.cjs
