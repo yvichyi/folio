@@ -9,8 +9,9 @@ on:
       - .github/workflows/content.yml
   pull_request:
     paths:
-      - docs/feed/**
-      - scripts/validate-content.cjs
+      - 'docs/**'
+      - 'scripts/validate-content.cjs'
+      - 'scripts/check-frontend.cjs'
       - .github/workflows/content.yml
   workflow_dispatch:
 permissions:
