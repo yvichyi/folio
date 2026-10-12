@@ -2,6 +2,7 @@ package com.folio.dailyenglish;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -23,6 +24,8 @@ import android.text.TextPaint;
 import android.text.style.ClickableSpan;
 import android.text.method.LinkMovementMethod;
 import android.view.Gravity;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
@@ -73,6 +76,7 @@ public final class MainActivity extends Activity {
     private FeedRepository.Article reading;
     private boolean busy=false;
     private ProgressBar readingProgress;
+    private ScrollView readerScroll;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
@@ -497,10 +501,13 @@ public final class MainActivity extends Activity {
         TextView room=caption("THE READING ROOM");room.setGravity(Gravity.CENTER);
         toolbar.addView(room,new LinearLayout.LayoutParams(0,-1,1));
         boolean fav=learning.isBookmarked(reading.url);
-        TextView star=action(fav?"◆":"◇",false,()->{
-            learning.bookmark(reading.url,!learning.isBookmarked(reading.url));
-            setStatus(learning.isBookmarked(reading.url)?"已收藏文章":"已取消收藏");
-            render();
+        TextView star=action(fav?"◆":"◇",false,()->{});
+        star.setOnClickListener(v->{
+            boolean selected=!learning.isBookmarked(reading.url);
+            learning.bookmark(reading.url,selected);
+            star.setText(selected?"◆":"◇");
+            star.setContentDescription(selected?"取消收藏":"收藏文章");
+            setStatus(selected?"已收藏文章":"已取消收藏");
         });
         star.setTextSize(23);star.setContentDescription(fav?"取消收藏":"收藏文章");
         toolbar.addView(star,lp(48,45));
@@ -510,7 +517,7 @@ public final class MainActivity extends Activity {
         readingProgress.setProgressTintList(ColorStateList.valueOf(GREEN));
         readingProgress.setProgressBackgroundTintList(ColorStateList.valueOf(SOFT));
         body.addView(readingProgress,lp(-1,3));
-        ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
+        ScrollView sc=scroll(body);readerScroll=sc;LinearLayout col=screenContent(sc);
         sc.setOnScrollChangeListener((View.OnScrollChangeListener)(view,x,y,oldX,oldY)->{
             int maximum=Math.max(1,sc.getChildAt(0).getHeight()-sc.getHeight());
             readingProgress.setProgress(Math.max(0,Math.min(100,100*y/maximum)));
@@ -551,8 +558,13 @@ public final class MainActivity extends Activity {
                 LinearLayout labels=column();labels.addView(text(w.word,19,INK,SERIF_BOLD));
                 gap(labels,4);labels.addView(text(w.meaning,13,MUTED,SANS));
                 line.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
-                TextView add=action(learning.hasWord(w.word)?"✓ 已保存":"＋ 收藏",false,
-                    ()->{learning.saveWord(w.word,w.meaning);setStatus(w.word+" 已加入生词本");render();});
+                TextView add=action(learning.hasWord(w.word)?"✓ 已保存":"＋ 收藏",false,()->{});
+                add.setOnClickListener(v->{
+                    learning.saveWord(w.word,w.meaning);
+                    add.setText("✓ 已保存");
+                    add.setContentDescription(w.word+" 已保存");
+                    setStatus(w.word+" 已加入生词本");
+                });
                 line.addView(add,lp(-2,43));col.addView(line);addDivider(col);
             }
         }
@@ -564,16 +576,32 @@ public final class MainActivity extends Activity {
         col.addView(action("✎  阅读札记",false,()->editNote()),lp(-1,46));gap(col,12);
         col.addView(action("◇  三题词汇小测",false,()->startQuiz()),lp(-1,46));gap(col,12);
         boolean completed=learning.isRead(reading.url);
-        col.addView(action(completed?"✓  本篇已完成":"✓  完成本篇阅读",true,()->{
-            learning.markRead(reading.url);setStatus("阅读记录已保存");render();
-        }),lp(-1,52));gap(col,15);
+        TextView finished=action(completed?"✓  本篇已完成":"✓  完成本篇阅读",true,()->{});
+        finished.setOnClickListener(v->{
+            learning.markRead(reading.url);
+            finished.setText("✓  本篇已完成");
+            setStatus("阅读记录已保存");
+        });
+        col.addView(finished,lp(-1,52));gap(col,15);
         TextView original=action("↗  前往媒体原文",false,()->openOriginal());
         col.addView(original,lp(-1,46));gap(col,30);
         TextView credit=text("本文精读材料独立编写，并非媒体原文全文。请通过原文链接访问出版方。",11,MUTED,SANS);
         credit.setGravity(Gravity.CENTER);col.addView(credit);
     }
     private void changeReadingFont(int change){
-        learning.setFontSize(learning.fontSize()+change);render();setStatus("正文 "+learning.fontSize()+"sp");
+        float fraction=0f;
+        if(readerScroll!=null&&readerScroll.getChildCount()>0){
+            int max=Math.max(1,readerScroll.getChildAt(0).getHeight()-readerScroll.getHeight());
+            fraction=readerScroll.getScrollY()/(float)max;
+        }
+        learning.setFontSize(learning.fontSize()+change);
+        final float keep=fraction;
+        render();
+        if(readerScroll!=null)readerScroll.post(()->{
+            int max=Math.max(0,readerScroll.getChildAt(0).getHeight()-readerScroll.getHeight());
+            readerScroll.scrollTo(0,Math.round(keep*max));
+        });
+        setStatus("正文 "+learning.fontSize()+"sp");
     }
     private String formatDate(String date){
         try{
@@ -643,49 +671,99 @@ public final class MainActivity extends Activity {
     }
     private void lookupWord(String raw){
         final String word=raw.toLowerCase(Locale.ROOT);
-        String known="";
-        if(reading!=null)for(FeedRepository.Word w:reading.words)
-            if(w.word.equalsIgnoreCase(word)){known=w.meaning;break;}
-        final String base=known.isEmpty()?"联网查询英文释义中…":known;
-        TextView explanation=text(base,15,INK,SANS);
-        pad(explanation,23,12,23,12);
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(word)
-            .setView(explanation)
-            .setNegativeButton("关闭",null)
-            .setPositiveButton(learning.hasWord(word)?"已在生词本":"＋ 加入生词本",(dlg,which)->{
-                learning.saveWord(word,explanation.getText().toString());
-                setStatus("已收藏 "+word);
-            }).create();
-        dialog.setOnDismissListener(d->{});
-        dialog.show();
-        if(!known.isEmpty())return;
+        String curated="";
+        if(reading!=null)for(FeedRepository.Word w:reading.words){
+            if(w.word.equalsIgnoreCase(word)){curated=w.meaning;break;}
+        }
+        final boolean hasCurated=!curated.isEmpty();
+        final String[] meaning={curated};
+        Dialog sheet=new Dialog(this);
+        LinearLayout panel=column();
+        pad(panel,23,20,23,29);
+        panel.setBackground(shape(BG,25));
+        TextView handle=text("━━━━",16,SAGE,SANS);
+        handle.setGravity(Gravity.CENTER);panel.addView(handle,lp(-1,23));
+        gap(panel,12);
+        panel.addView(caption("FOLIO LEXICON  /  轻触查词"));gap(panel,12);
+        TextView title=text(word,34,INK,SERIF_BOLD);panel.addView(title);
+        gap(panel,15);
+        TextView meaningView=text(hasCurated?curated:"正在获取英语释义…",16,INK,SANS);
+        meaningView.setMinHeight(d(62));
+        panel.addView(meaningView);gap(panel,14);
+        TextView note=text(hasCurated?"本期编辑精选词汇":"释义由外部词典提供；离线可学习已精选词汇。",11,MUTED,SANS);
+        panel.addView(note);gap(panel,24);
+        LinearLayout actions=row();
+        TextView dismiss=action("返回阅读",false,sheet::dismiss);
+        actions.addView(dismiss,new LinearLayout.LayoutParams(0,d(48),1));
+        View spacing=new View(this);actions.addView(spacing,lp(10,1));
+        TextView save=action(learning.hasWord(word)?"✓ 已收藏":"＋ 收藏单词",true,()->{});
+        boolean ready=hasCurated||learning.hasWord(word);
+        save.setEnabled(ready);save.setAlpha(ready?1f:.45f);
+        save.setOnClickListener(v->{
+            if(learning.hasWord(word)){sheet.dismiss();return;}
+            if(meaning[0]==null||meaning[0].trim().isEmpty()){setStatus("释义尚未就绪");return;}
+            learning.saveWord(word,meaning[0]);
+            setStatus("已收藏 "+word);
+            sheet.dismiss();
+        });
+        actions.addView(save,new LinearLayout.LayoutParams(0,d(48),1.15f));
+        panel.addView(actions);
+        sheet.setContentView(panel);
+        Window window=sheet.getWindow();
+        if(window!=null){
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams params=window.getAttributes();
+            params.width=WindowManager.LayoutParams.MATCH_PARENT;
+            params.height=WindowManager.LayoutParams.WRAP_CONTENT;
+            params.gravity=Gravity.BOTTOM;
+            params.dimAmount=.37f;
+            window.setAttributes(params);
+            window.setNavigationBarColor(BG);
+        }
+        sheet.show();
+        window=sheet.getWindow();
+        if(window!=null)window.setLayout(-1,-2);
+        if(hasCurated || learning.hasWord(word))return;
+
         lookup.execute(()->{
-            String definition="暂时无法查到释义，可稍后重试";
+            String definition=null;
             HttpURLConnection conn=null;
             try{
-                URL u=new URL("https://api.dictionaryapi.dev/api/v2/entries/en/"+word);
-                conn=(HttpURLConnection)u.openConnection();
+                URL url=new URL("https://api.dictionaryapi.dev/api/v2/entries/en/"+word);
+                conn=(HttpURLConnection)url.openConnection();
                 conn.setConnectTimeout(5500);conn.setReadTimeout(5500);
                 if(conn.getResponseCode()==200){
                     ByteArrayOutputStream out=new ByteArrayOutputStream();
                     try(InputStream input=conn.getInputStream()){
-                        byte[] buf=new byte[1024];int n;
-                        while((n=input.read(buf))!=-1&&out.size()<45000)out.write(buf,0,n);
+                        byte[] buffer=new byte[1024];int count;
+                        while((count=input.read(buffer))!=-1&&out.size()<45000)
+                            out.write(buffer,0,count);
                     }
                     JSONArray items=new JSONArray(out.toString("UTF-8"));
                     JSONArray meanings=items.getJSONObject(0).optJSONArray("meanings");
                     if(meanings!=null&&meanings.length()>0){
                         JSONObject first=meanings.getJSONObject(0);
-                        JSONArray defs=first.optJSONArray("definitions");
-                        if(defs!=null&&defs.length()>0){
-                            definition=first.optString("partOfSpeech","")+" · "+defs.getJSONObject(0).optString("definition");
+                        JSONArray definitions=first.optJSONArray("definitions");
+                        if(definitions!=null&&definitions.length()>0){
+                            String text=definitions.getJSONObject(0).optString("definition");
+                            if(!text.trim().isEmpty())definition=first.optString("partOfSpeech")+" · "+text;
                         }
                     }
                 }
             }catch(Exception ignored){}
             finally{if(conn!=null)conn.disconnect();}
             final String result=definition;
-            main.post(()->{if(dialog.isShowing())explanation.setText(result);});
+            main.post(()->{
+                if(!sheet.isShowing())return;
+                if(result==null){
+                    meaningView.setText("释义暂不可用。稍后联网重试，或使用本期精选词汇。");
+                    return;
+                }
+                meaning[0]=result;
+                meaningView.setText(result);
+                save.setEnabled(true);save.setAlpha(1f);
+            });
         });
     }
     private void startQuiz(){
