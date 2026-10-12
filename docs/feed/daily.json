@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-12T04:55:00Z",
+  "items": [
+    {
+      "title": "UK to strengthen cyber defences as minister calls for AI firms to increase safety efforts",
+      "url": "https://www.theguardian.com/technology/2026/oct/12/uk-strengthen-cyber-defences-minister-ai-firms-safety",
+      "source": "The Guardian",
+      "topic": "科技",
+      "date": "2026-10-11T23:01:00Z",
+      "summary": "Britain is considering stronger protections against cyber threats associated with advanced AI. Officials argue that powerful AI developers should take greater responsibility for evaluating risks, while governments need the capacity to assess and respond to those risks independently. The debate highlights the tension between rapid innovation and public safety.",
+      "editorNote": "今天的精读问题：为什么文章把 AI 安全视为技术问题，也视为公共治理问题？阅读时注意 developer responsibility（开发者责任）与 government oversight（政府监督）的区别。",
+      "vocabulary": [
+        {
+          "word": "defences",
+          "meaning": "防御措施（英式拼写）"
+        },
+        {
+          "word": "oversight",
+          "meaning": "监管；监督"
+        },
+        {
+          "word": "responsibility",
+          "meaning": "责任"
+        },
+        {
+          "word": "evaluate",
+          "meaning": "评估"
+        },
+        {
+          "word": "tension",
+          "meaning": "张力；矛盾"
+        }
+      ]
+    },
+    {
+      "title": "I need smart glasses. How else can I monetize every second of my life?",
+      "url": "https://www.theguardian.com/commentisfree/2026/oct/11/smart-glasses-content-creation",
+      "source": "The Guardian",
+      "topic": "文化",
+      "date": "2026-10-11T11:00:00Z",
+      "summary": "In a satirical opinion piece, the writer questions a future in which smart glasses make it easy to record and publish almost every moment. Convenient wearable cameras can also capture people who never agreed to be filmed. The essay asks whether turning everyday experience into content changes how we value privacy, attention and ordinary life.",
+      "editorNote": "这是一篇带讽刺语气的评论，不是产品测评。标题里的 monetize every second 故意夸张；尝试找出作者表面赞同、实际批评的观点。",
+      "vocabulary": [
+        {
+          "word": "monetize",
+          "meaning": "将……商业化；变现"
+        },
+        {
+          "word": "satirical",
+          "meaning": "讽刺性的"
+        },
+        {
+          "word": "wearable",
+          "meaning": "可穿戴的"
+        },
+        {
+          "word": "consent",
+          "meaning": "同意；许可"
+        },
+        {
+          "word": "privacy",
+          "meaning": "隐私"
+        }
+      ]
+    },
+    {
+      "title": "‘I want to do everything I can to head off dementia’: why demand for the shingles vaccine is soaring",
+      "url": "https://www.theguardian.com/society/2026/oct/11/dementia-demand-for-shingles-vaccine-is-soaring",
+      "source": "The Guardian",
+      "topic": "科学",
+      "date": "2026-10-11T13:00:00Z",
+      "summary": "Interest in shingles vaccination has increased as researchers investigate a possible association with lower dementia risk. Early studies offer encouraging signals, but they do not yet establish that vaccination itself prevents dementia. The article explores the gap between promising research findings, scientific uncertainty and the decisions people make about their health.",
+      "editorNote": "注意科学英语里的证据强度：association 不等于 causation，promising evidence 不等于 definitive proof。本文是研究报道，并非对个人医疗决策的建议。",
+      "vocabulary": [
+        {
+          "word": "dementia",
+          "meaning": "痴呆症"
+        },
+        {
+          "word": "shingles",
+          "meaning": "带状疱疹"
+        },
+        {
+          "word": "vaccination",
+          "meaning": "疫苗接种"
+        },
+        {
+          "word": "association",
+          "meaning": "关联（不等于因果）"
+        },
+        {
+          "word": "definitive",
+          "meaning": "明确的；决定性的"
+        }
+      ]
+    }
+  ]
+}
