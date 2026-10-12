@@ -1,112 +1,25 @@
 <!doctype html>
-<html lang="zh-CN"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f3f0e8">
-<meta name="description" content="Folio · 每日英语外刊。阅读英文，认识世界。">
-<title>Folio — 每日英语外刊</title>
-<style>
-:root{color-scheme:light;--paper:#f5f2ea;--ink:#26372c;--muted:#738078;--accent:#425f4a;--line:#d8ddd1;--shade:#e8eae1;--white:#fffefb}
-*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.65 system-ui,-apple-system,"Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased}
-button{font:inherit;cursor:pointer}a{color:inherit}button:focus-visible,a:focus-visible{outline:3px solid #a4b79e;outline-offset:3px}
-.shell{width:min(980px,100%);margin:auto;padding:0 24px 100px}
-.top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:22px 0 18px}
-.brand{font:italic 36px/1 Georgia,"Times New Roman",serif;letter-spacing:-2px}
-.top small{font-size:10px;letter-spacing:.15em;color:var(--muted);display:block;margin-top:5px}
-.top button,.minor{background:transparent;border:1px solid var(--line);color:var(--accent);border-radius:999px;padding:8px 13px}
-.dateline{text-align:center;letter-spacing:.22em;color:var(--muted);font-size:10px;text-transform:uppercase;padding:31px 0 25px}
-.hero{padding:0 0 40px;border-bottom:1px solid var(--ink)}.hero h1{font:normal clamp(50px,10vw,102px)/.97 Georgia,"Times New Roman",serif;letter-spacing:-.055em;margin:0}
-.hero em{color:#819b7e;font-weight:normal}.hero p{font-size:15px;color:var(--muted);margin:20px 0 0}
-.row{display:flex;align-items:center;justify-content:space-between;gap:16px}.kicker{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);font-weight:700}
-.section{margin-top:36px}.section h2{font:normal 29px/1.2 Georgia,serif;letter-spacing:-.02em;margin:9px 0 18px}
-.feature{border:1px solid var(--line);background:#e9eee6;border-radius:10px;text-align:left;width:100%;padding:30px;display:block;color:var(--ink);transition:transform .15s,box-shadow .15s}
-.feature:hover{transform:translateY(-2px);box-shadow:0 10px 25px #26372c12}
-.feature h3{font:normal clamp(32px,5vw,55px)/1.08 Georgia,serif;letter-spacing:-.035em;margin:19px 0 18px;max-width:760px}
-.feature p{max-width:710px;color:#637366;margin:0}.feature .foot{border-top:1px solid #c7d4c5;padding-top:16px;margin-top:32px}
-.between{display:flex;justify-content:space-between;gap:15px;align-items:center}
-.filters{display:flex;gap:8px;flex-wrap:wrap;margin:5px 0 23px}
-.filter{background:transparent;border:1px solid #cad4c8;border-radius:99px;padding:7px 16px;color:var(--accent)}
-.filter[aria-pressed=true]{background:var(--ink);color:white}
-.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.article{border-top:1px solid #aebcaf;padding:22px 0;text-align:left;background:transparent;color:var(--ink);border-left:0;border-right:0;border-bottom:0}
-.article h3{font:normal 25px/1.25 Georgia,serif;letter-spacing:-.015em;margin:12px 0}
-.article p{color:var(--muted);font-size:13px;line-height:1.65}
-.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:16px 0}
-.dot{width:7px;height:7px;background:#739373;border-radius:50%}.dot.bad{background:#be8f55}
-.page-footer{border-top:1px solid var(--line);color:var(--muted);font-size:11px;margin-top:55px;padding-top:20px}
-.overlay{position:fixed;inset:0;background:var(--paper);z-index:10;overflow:auto;display:none}
-.overlay.open{display:block}
-.reader{max-width:740px;margin:auto;padding:34px 24px 90px}.back{border:0;background:transparent;color:var(--accent);padding:6px 0 28px}
-.reader h1{font:normal clamp(36px,7vw,65px)/1.1 Georgia,serif;letter-spacing:-.03em;margin:15px 0 23px}
-.reader p.english{font:21px/1.85 Georgia,serif;color:#334138}.note{background:#e8ece5;border-left:3px solid #779577;padding:19px 22px;margin:25px 0}
-.wordlist{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px}.word{border:1px solid var(--line);border-radius:99px;background:#fff;padding:8px 14px;color:var(--ink)}.word b{font-size:13px}
-.actions{display:flex;gap:9px;flex-wrap:wrap}.action{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-radius:8px;background:var(--ink);color:#fff;border:1px solid var(--ink);padding:12px 19px}.action.alt{background:transparent;color:var(--ink)}
-.toast{position:fixed;bottom:25px;left:50%;transform:translateX(-50%);max-width:90vw;background:var(--ink);color:white;border-radius:8px;padding:12px 20px;z-index:20;display:none;text-align:center}
-.empty{padding:45px 0;color:var(--muted)}
-@media(max-width:600px){.shell{padding:0 21px 60px}.cards{grid-template-columns:1fr}.feature{padding:23px}.top{padding-top:16px}.hero{padding-bottom:28px}.section{margin-top:29px}.article{padding:18px 0}.reader{padding-top:19px}.reader p.english{font-size:19px}}
-</style></head>
-<body><main class="shell">
-<header class="top"><div><div class="brand">folio.</div><small>DAILY ENGLISH READING</small></div><button id="refresh" aria-label="刷新文章">↻ 刷新</button></header>
-<div class="dateline" id="dateline">INDEPENDENT READING JOURNAL</div>
-<section class="hero"><h1>Read a little.<br><em>Think a lot.</em></h1><p>每天一篇好文章，让英语与思考共同生长。</p></section>
-<div class="status" role="status"><span id="dot" class="dot"></span><span id="status">正在读取今日外刊……</span></div>
-<section class="section"><div class="row"><span class="kicker">THE EDITOR'S PICK</span><span class="kicker" id="count"></span></div><div id="featured"></div></section>
-<section class="section"><div class="kicker">CURATED FOR YOU</div><h2>Fresh perspectives</h2>
-<div class="filters" id="filters"><button class="filter" data-topic="全部" aria-pressed="true">全部</button><button class="filter" data-topic="科技" aria-pressed="false">科技</button><button class="filter" data-topic="科学" aria-pressed="false">科学</button><button class="filter" data-topic="文化" aria-pressed="false">文化</button></div>
-<div class="cards" id="cards"></div></section>
-<footer class="page-footer">FOLIO · Personal English reading companion · 原文版权属于各出版方；此处提供原创学习摘要与原文链接。<br>阅读词汇保存在本机浏览器。</footer>
-</main>
-<div class="overlay" id="overlay"><article class="reader"><button class="back" id="back">← 返回今日</button><div id="reading"></div></article></div>
-<div class="toast" id="toast" role="status"></div>
-<script>
-(function(){
-'use strict';
-var stories=[],topic='全部',last='',cacheKey='folio.editorial-cache.v1',seenKey='folio.saved-words.v1';
-var byId=function(id){return document.getElementById(id)};
-function node(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!==undefined)e.textContent=String(text);return e}
-function toast(msg){var el=byId('toast');el.textContent=msg;el.style.display='block';setTimeout(function(){el.style.display='none'},2400)}
-function short(s,n){return s.length>n?s.slice(0,n-1)+'…':s}
-function saved(){try{return JSON.parse(localStorage.getItem(seenKey)||'{}')}catch(_){return {}}}
-function addWord(w,m){var v=saved();v[w]=m;localStorage.setItem(seenKey,JSON.stringify(v));toast('已收藏 '+w+' · '+m)}
-function format(d){var t=new Date(d);return isNaN(t)?'':t.toLocaleDateString('zh-CN',{year:'numeric',month:'short',day:'numeric'})}
-function render(){
- var arr=topic==='全部'?stories:stories.filter(function(a){return a.topic===topic});
- byId('count').textContent=stories.length+' ARTICLES';
- var f=byId('featured'),c=byId('cards');f.replaceChildren();c.replaceChildren();
- if(!arr.length){var p=node('div','empty',stories.length?'这个分类今天暂无文章。':'暂无可展示的文章。');f.appendChild(p);return}
- var hero=arr[0],h=node('button','feature');h.type='button';h.onclick=function(){openStory(hero)};
- h.appendChild(node('div','kicker',hero.topic+' · '+hero.source));
- h.appendChild(node('h3','',hero.title));h.appendChild(node('p','',short(hero.summary,290)));
- var foot=node('div','foot between');foot.appendChild(node('span','kicker',format(hero.date)));foot.appendChild(node('span','kicker','READ STORY ↗'));h.appendChild(foot);f.appendChild(h);
- arr.slice(1).forEach(function(a){var card=node('button','article');card.type='button';card.onclick=function(){openStory(a)};
- card.appendChild(node('div','kicker',a.topic+' / '+format(a.date)));
- card.appendChild(node('h3','',a.title));card.appendChild(node('p','',short(a.summary,200)));c.appendChild(card)});
- }
-function openStory(a){
- var root=byId('reading');root.replaceChildren();
- root.appendChild(node('div','kicker',a.source+' · '+a.topic+' · '+format(a.date)));
- root.appendChild(node('h1','',a.title));
- root.appendChild(node('div','kicker','THE READING ROOM / 原创学习摘要'));
- root.appendChild(node('p','english',a.summary));
- if(a.editorNote){var box=node('div','note');box.appendChild(node('div','kicker','EDITOR’S NOTE / 中文导读'));box.appendChild(node('p','',a.editorNote));root.appendChild(box)}
- if(a.vocabulary&&a.vocabulary.length){root.appendChild(node('div','kicker','KEY WORDS / 点击收藏词汇'));var list=node('div','wordlist');a.vocabulary.forEach(function(v){var b=node('button','word');var strong=node('b','',v.word);b.appendChild(strong);b.appendChild(node('span','', ' · '+v.meaning));b.onclick=function(){addWord(v.word,v.meaning)};list.appendChild(b)});root.appendChild(list)}
- var actions=node('div','actions');var aLink=node('a','action','阅读媒体原文 ↗');aLink.href=a.url;aLink.target='_blank';aLink.rel='noopener noreferrer';actions.appendChild(aLink);
- var speak=node('button','action alt','♪ 朗读摘要');speak.onclick=function(){if(!('speechSynthesis'in window)){toast('此设备不支持朗读');return}speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(a.summary);u.lang='en-US';u.rate=.9;speechSynthesis.speak(u)};actions.appendChild(speak);root.appendChild(actions);
- byId('overlay').classList.add('open');byId('overlay').scrollTop=0;history.replaceState(null,'','#reading');
- }
-function closeStory(){byId('overlay').classList.remove('open');history.replaceState(null,'',location.pathname)}
-function accept(data){if(!data||data.schemaVersion!==1||!Array.isArray(data.items))throw Error('数据格式不正确');
- var arr=data.items.filter(function(a){return a&&typeof a.title==='string'&&typeof a.url==='string'&&/^https:\/\//.test(a.url)&&typeof a.summary==='string'});if(!arr.length)throw Error('今天暂无文章');
- stories=arr;last=data.updatedAt||new Date().toISOString();localStorage.setItem(cacheKey,JSON.stringify(data));byId('dot').className='dot';byId('status').textContent='已同步云端精选 · '+format(last);render();}
-async function refresh(){
- var b=byId('refresh');b.disabled=true;b.textContent='同步中…';
- try{var response=await fetch('./feed/daily.json?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);accept(await response.json());toast('已更新 '+stories.length+' 篇精选');}
- catch(err){var raw=localStorage.getItem(cacheKey);if(raw){try{accept(JSON.parse(raw));byId('dot').className='dot bad';byId('status').textContent='离线模式 · 显示已缓存内容';return}catch(_){}}byId('dot').className='dot bad';byId('status').textContent='暂时无法连接云端，请稍后刷新';byId('featured').replaceChildren(node('div','empty','连接失败。请检查网络或 GitHub Pages 是否已启用。'))}
- finally{b.disabled=false;b.textContent='↻ 刷新'}
-}
-document.querySelectorAll('.filter').forEach(function(b){b.addEventListener('click',function(){topic=b.dataset.topic;document.querySelectorAll('.filter').forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});render()})});
-byId('refresh').onclick=refresh;byId('back').onclick=closeStory;
-byId('dateline').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toUpperCase();
-refresh();
-})();
-</script>
-</body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f3ed" /><meta name="color-scheme" content="light" />
+  <meta name="description" content="Folio — 每日英语外刊与深度阅读" />
+  <title>Folio — 每日英语外刊</title>
+  <link rel="stylesheet" href="style.css?v=4" />
+</head>
+<body>
+<div id="app">
+  <main id="main" aria-live="polite"></main>
+  <nav id="nav" class="bottom-nav" aria-label="主导航">
+    <button class="nav-item selected" data-nav="home" aria-label="今日"><span class="nav-symbol">⌂</span><span>今日</span></button>
+    <button class="nav-item" data-nav="explore" aria-label="发现"><span class="nav-symbol">⌕</span><span>发现</span></button>
+    <button class="nav-item" data-nav="words" aria-label="词库"><span class="nav-symbol">▧</span><span>词库</span></button>
+    <button class="nav-item" data-nav="profile" aria-label="我的"><span class="nav-symbol">◌</span><span>我的</span></button>
+  </nav>
+  <div id="wordOverlay" class="overlay" aria-hidden="true"><div class="overlay-backdrop" data-action="close-word"></div><section class="word-sheet" role="dialog" aria-modal="true" aria-label="单词详情" id="wordBody"></section></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</div>
+<script src="app.js?v=4" defer></script>
+</body>
+</html>
