@@ -7,6 +7,7 @@ import android.os.Looper;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -54,6 +55,17 @@ final class FeedRepository {
         lastSync=prefs.getLong("last_sync",0);
         if(!cache.isEmpty()) {
             try { parse(cache);hasCache=true; }catch(Exception ignore){}
+        }
+        // Bundled, dated editorial material is a real first-launch offline fallback.
+        // An actual network refresh always replaces it when newer content is available.
+        if(!hasCache) {
+            try(InputStream stream=context.getAssets().open("issue-seed.json")) {
+                ByteArrayOutputStream buffer=new ByteArrayOutputStream();
+                byte[] chunk=new byte[4096];int n;
+                while((n=stream.read(chunk))!=-1 && buffer.size()<150000)buffer.write(chunk,0,n);
+                parse(buffer.toString("UTF-8"));
+                hasCache=true;
+            } catch(Exception ignored) {}
         }
     }
     boolean isUpdating(){return updating;}
