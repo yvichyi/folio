@@ -524,7 +524,11 @@ public final class MainActivity extends Activity {
         });
         col.addView(caption(reading.topic.toUpperCase(Locale.ENGLISH)+"  /  "+reading.source.toUpperCase(Locale.ENGLISH)));
         gap(col,21);
-        TextView title=text(reading.title,34,INK,SERIF_BOLD);title.setLineSpacing(d(2),1.05f);
+        // Length-aware editorial typography: long titles should not crowd out the text.
+        int titleLength=reading.title.length();
+        int titleSp=titleLength>82?26:(titleLength>54?29:33);
+        TextView title=text(reading.title,titleSp,INK,SERIF_BOLD);
+        title.setLineSpacing(d(1),1.04f);
         col.addView(title);gap(col,17);
         TextView date=caption(formatDate(reading.date)+"  ·  "+
             Math.max(2,reading.readingText.trim().split("\\s+").length/180)+" MIN READ");
