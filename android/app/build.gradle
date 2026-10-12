@@ -5,7 +5,7 @@ android {
     namespace 'com.folio.dailyenglish'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.folio.dailyenglish'
+        applicationId 'com.folio.dailyenglish.nativepreview'
         minSdk 26
         targetSdk 34
         versionCode 4
