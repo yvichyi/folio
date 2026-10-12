@@ -1,0 +1,26 @@
+name: Validate Folio content
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/feed/**
+      - scripts/validate-content.cjs
+      - .github/workflows/content.yml
+  pull_request:
+    paths:
+      - docs/feed/**
+      - scripts/validate-content.cjs
+      - .github/workflows/content.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate online JSON feed
+        run: node scripts/validate-content.cjs
