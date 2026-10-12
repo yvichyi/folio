@@ -56,3 +56,6 @@ if not any('你的生词本' in t for t in texts):
     raise SystemExit('Vocabulary navigation failed: '+repr(texts[:40]))
 print('Native startup and wordbook navigation smoke PASS')
 PY
+
+# Verify SQLite durability against a real Android database, not just Java mocks.
+gradle -p android :app:connectedDebugAndroidTest --no-daemon
