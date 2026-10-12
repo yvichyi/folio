@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/native-ui-smoke.yml'
       - 'scripts/native-ui-smoke.sh'
-      - 'android/app/src/main/java/com/folio/dailyenglish/MainActivity.java'
+      - 'android/**'
   workflow_dispatch:
 permissions:
   contents: read
