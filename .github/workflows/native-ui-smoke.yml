@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/native-ui-smoke.yml'
+      - 'scripts/native-ui-smoke.sh'
       - 'android/app/src/main/java/com/folio/dailyenglish/MainActivity.java'
   workflow_dispatch:
 permissions:
