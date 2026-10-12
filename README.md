@@ -1,5 +1,25 @@
 # Folio · 每日英语外刊
 
+## Online Study Edition v0.4 (October 12, 2026)
+
+**The current installed v0.3 Android preview can load this newer interface by reopening or refreshing the app.** This is a remote web-client feature update; the Android package itself remains the v0.3 preview. No APK rebuild is needed for article, UI or study-content changes hosted on GitHub Pages.
+
+The full online study flow now includes:
+
+- Four primary destinations: Today, Explore (search and subject filters), Wordbook (saved words and due flashcard reviews), and Profile (progress, saved stories, journal, backups).
+- Reading Studio: clearly attributed original English learning text, Chinese editor's notes, word-by-word lookup, curated vocabulary, three retrieval questions, user notes, English reading aloud when supported, reading completion and original-publisher link.
+- Saved-word spaced review, locally saved bookmarks and archived reading notes even after the daily issue changes.
+- Local-first cached issues and honest offline messaging. Older first-generation wordbook items and cached articles are migrated where available.
+- Android-friendly copy/paste JSON backup and restore, with optional file download in supported browsers.
+- Upgraded mobile layout and larger text/touch controls; UI transitions respect reduced-motion settings.
+- Daily editorial updates change `docs/feed/daily.json` and do not invoke the Android APK build workflow.
+
+**Verification:** A local Chromium UI exercise tested mobile (390px and 320px), desktop (1280px), loading the issue, opening an article, vocabulary lookup/save, quiz steps, note persistence, bookmarking, review list, offline fallback, reading-archive retrieval, JSON restore, and horizontal overflow. GitHub Actions checks JavaScript syntax, key app wiring, feed schema and original study-text presence. These checks are not a substitute for Android device and accessibility testing.
+
+**Not yet release-quality:** the Android shell is a minimal WebView wrapper; Web Speech and external link behavior require Android-device acceptance, offline first launch cannot show genuine articles until a feed has been cached, all long-form passages are **original pedagogical adaptations rather than publisher full texts**, and debug APKs are not stable signed production releases. Do not describe the app as having silent background data sync or native notifications.
+
+---
+
 Personal English-reading companion: the **article feed updates online**, not through daily APK rebuilds.
 
 ## Live content
