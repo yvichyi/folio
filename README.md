@@ -1,5 +1,18 @@
 # Folio · 每日英语外刊
 
+## Android v0.6 · Native interaction motion (October 12, 2026)
+
+Folio adds a small motion vocabulary in [FolioMotion.java](android/app/src/main/java/com/folio/dailyenglish/FolioMotion.java): directional 235ms bottom-tab transitions, 285ms article entrance/return, touch-down press-scale recovery, bookmarking confirmation and 260ms bottom vocabulary sheet entry / 190ms exit. Android "Remove animations" is respected through `ValueAnimator.areAnimatorsEnabled()`; motion is not required to complete an action.
+
+- [Build and unit-test witness](../../actions/workflows/android.yml)
+- [Real Android simulator navigation smoke and motion recording](https://github.com/yvichyi/folio/actions/runs/38223893144)
+- The motion evidence is an actual Android screenrecord included in the CI `folio-native-screen-evidence` artifact. It shows initial list -> article -> back -> wordbook -> home. The cloud-emulator recorder has uneven/low sampled frame rate, so this **does not establish device framerate or polish**.
+- The **v0.6 native APK is required** for these native UI animations; pushing JSON daily articles cannot change compiled Android animation code. Subsequent article issues still update with a simple content refresh.
+- Stable signing, data migration between preview builds and touch/animation performance on physical devices remain open production gates.
+
+---
+
+
 ## Android Native Preview v0.5 · October 12, 2026
 
 This release addresses the main product-retention defect, rather than simply adding another screen:
