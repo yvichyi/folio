@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-12T04:55:00Z",
+  "updatedAt": "2026-10-12T05:52:38.495Z",
   "items": [
     {
       "title": "UK to strengthen cyber defences as minister calls for AI firms to increase safety efforts",
@@ -31,7 +31,9 @@
           "word": "tension",
           "meaning": "张力；矛盾"
         }
-      ]
+      ],
+      "readingText": "When a powerful technology enters public life, the question is rarely just what it can do. The harder question is who should decide how it is used, who benefits, and who is responsible when something goes wrong.\n\nArtificial intelligence illustrates this problem clearly. The same system that helps a security team identify weaknesses in software may also help an attacker search for them. This does not make the technology inherently good or bad. Its effects depend on access, incentives, safeguards and the people making decisions.\n\nCompanies building advanced AI systems understand many details about their models. They can test weaknesses, document limitations and design protective measures. Yet the public cannot rely entirely on assurances from the companies whose products are being evaluated. Independent oversight matters because commercial success and public safety are not always perfectly aligned.\n\nGovernments face a different difficulty. They are expected to protect people, but technology changes faster than regulations can easily adapt. A sensible approach therefore needs both technical expertise and public accountability. It should ask not only whether a model performs well on a test, but also whether that test represents risks people may face outside the laboratory.\n\nThe deeper lesson reaches beyond AI. Innovation becomes trustworthy when it can be questioned, measured and corrected. The aim is not to prevent every possible mistake before progress begins. It is to build institutions and habits that recognize mistakes early and respond honestly.",
+      "discussionQuestion": "What should independent AI oversight measure that companies might overlook? 请区分企业自测与公共监管的职责。"
     },
     {
       "title": "I need smart glasses. How else can I monetize every second of my life?",
@@ -62,7 +64,9 @@
           "word": "privacy",
           "meaning": "隐私"
         }
-      ]
+      ],
+      "readingText": "Imagine walking into a café where almost everyone is wearing a camera. No one is obviously filming, and nothing unusual is happening. Yet any conversation, expression or accidental moment might become part of someone else's recording. Would the room feel the same?\n\nSmart glasses are interesting because they make cameras less noticeable. A phone held up to record is an action that other people can usually see. Glasses can make recording feel like an ordinary part of looking. This shift changes the social meaning of the device, even when the underlying technology is familiar.\n\nThere are benefits to hands-free photography. People may find it easier to document a trip, share a view or access information without looking down at a screen. But convenience for the wearer is not the same as consent from everyone nearby. A device can be useful to one person while making another feel observed.\n\nThe debate also involves attention. When an experience can be turned into content instantly, we may begin to evaluate moments by how they would appear to an audience. A meal becomes a clip; a conversation becomes a potential post. Satire exaggerates this tendency to ask a serious question: if everything can be shared, what deserves to remain private?\n\nThe challenge is not simply to choose between technological progress and nostalgia. It is to design visible recording signals, meaningful controls and social expectations that respect people who never chose to participate. A good technology should fit into human relationships without silently rewriting their rules.",
+      "discussionQuestion": "Is being visible to others the same as consenting to be recorded? Give an example from daily life."
     },
     {
       "title": "‘I want to do everything I can to head off dementia’: why demand for the shingles vaccine is soaring",
@@ -93,7 +97,9 @@
           "word": "definitive",
           "meaning": "明确的；决定性的"
         }
-      ]
+      ],
+      "readingText": "Scientific headlines often turn a complicated finding into a simple possibility: an existing vaccine might reduce the risk of a different disease. Such reports can be encouraging, especially when that disease is difficult to prevent or treat. But understanding the evidence requires more than reading the headline.\n\nResearchers can investigate whether people who received a shingles vaccine are less likely to be diagnosed with dementia later in life. Finding an association would be interesting. It would not, by itself, prove that the vaccine caused the difference. People who get vaccinated may differ from others in their age, access to healthcare, habits or underlying health.\n\nScientists try to address alternative explanations through careful study design. They may compare similar groups, look for natural variations in vaccine eligibility, or examine results from different populations. Each method can strengthen an argument, but each also has limitations. Even a persuasive pattern must be interpreted in light of uncertainty.\n\nThere is another distinction worth remembering: evidence that supports further research is not identical to evidence that justifies a universal recommendation. Medical decisions involve individual circumstances and guidance from qualified professionals, not a single promising article.\n\nFor an English learner, three words can clarify the logic of scientific reporting. An association is a relationship between observations. Causation means that one factor produces an effect. Definitive evidence would support a much firmer conclusion. Reading carefully means noticing when a writer moves from one level of certainty to another.",
+      "discussionQuestion": "Why does an association between vaccination and dementia outcomes not automatically establish causation?"
     }
   ]
 }
