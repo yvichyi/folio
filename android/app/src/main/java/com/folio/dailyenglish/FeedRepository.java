@@ -25,9 +25,10 @@ final class FeedRepository {
         Word(String w,String m) { word=w;meaning=m; }
     }
     static final class Article {
-        final String title, source, topic, date, summary, readingText, editorNote, question, url;
+        final String title, source, topic, date, summary, readingText, editorNote, question, url, rawJson;
         final List<Word> words;
         Article(JSONObject j) {
+            rawJson=j.toString();
             title=j.optString("title"); source=j.optString("source"); topic=j.optString("topic");
             date=j.optString("date"); summary=j.optString("summary");
             readingText=j.optString("readingText",summary); editorNote=j.optString("editorNote");
