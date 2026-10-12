@@ -9,4 +9,8 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:windowBackground">#F6F3EB</item>
     </style>
+    <style name="FolioSheetAnimation">
+        <item name="android:windowEnterAnimation">@anim/folio_sheet_in</item>
+        <item name="android:windowExitAnimation">@anim/folio_sheet_out</item>
+    </style>
 </resources>
