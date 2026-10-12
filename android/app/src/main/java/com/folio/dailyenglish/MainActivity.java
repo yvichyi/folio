@@ -4,612 +4,713 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.text.SpannableString;
+import android.os.Handler;
+import android.os.Looper;
+import android.speech.tts.TextToSpeech;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextPaint;
-import android.text.method.LinkMovementMethod;
 import android.text.style.ClickableSpan;
+import android.text.method.LinkMovementMethod;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
+import android.view.accessibility.AccessibilityManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.speech.tts.TextToSpeech;
-import org.json.JSONObject;
+import android.widget.ProgressBar;
 import org.json.JSONArray;
+import org.json.JSONObject;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class MainActivity extends Activity {
-    private static final int BG=Color.rgb(246,243,235), INK=Color.rgb(36,55,43);
-    private static final int GREEN=Color.rgb(66,95,73), MUTED=Color.rgb(112,129,116);
-    private static final int LINE=Color.rgb(217,224,213), SURFACE=Color.rgb(255,254,250);
-    private static final int SOFT=Color.rgb(232,237,228), WHITE=Color.WHITE;
-    private final ExecutorService executor=Executors.newSingleThreadExecutor();
-    private FolioStore store;
-    private FrameLayout frame, pageHost;
-    private LinearLayout shell, bottom, top;
-    private ProgressBar loading;
-    private int tab=0, topic=0, reviewIndex=0;
-    private boolean inArticle=false, syncing=false, destroyed=false;
-    private FolioStore.Article current;
-    private ArrayList<String> reviewQueue=new ArrayList<>();
-    private boolean revealed=false;
-    private TextToSpeech tts;
-    private boolean ttsReady=false;
-    private final String[] category={"全部","科技","科学","文化","思想"};
-    private static final Pattern WORD=Pattern.compile("[A-Za-z]+(?:[-'][A-Za-z]+)*");
+    private static final int BG=0xFFF6F4ED, INK=0xFF1F3228, GREEN=0xFF274B39,
+        SAGE=0xFF8CA58F, MUTED=0xFF728077, LINE=0xFFDADDD3, PANEL=0xFFFFFFFF,
+        SOFT=0xFFE7ECE4, GOLD=0xFFE7BD7F, DARKPANEL=0xFF203E30;
+    private static final Typeface SERIF=Typeface.create("serif",Typeface.NORMAL);
+    private static final Typeface SERIF_BOLD=Typeface.create("serif",Typeface.BOLD);
+    private static final Typeface SANS=Typeface.create("sans-serif",Typeface.NORMAL);
+    private static final Typeface SANS_MED=Typeface.create("sans-serif-medium",Typeface.NORMAL);
+    private static final Pattern WORD_PATTERN=Pattern.compile("[A-Za-z][A-Za-z'-]*");
+    private FeedRepository feed;
+    private LearningStore learning;
+    private TextToSpeech speech;
+    private ExecutorService lookup=Executors.newSingleThreadExecutor();
+    private final Handler main=new Handler(Looper.getMainLooper());
+    private LinearLayout outer,body,navbar;
+    private int activeTab=0; // 0 edition / 1 saved / 2 words / 3 me
+    private String topic="全部",search="";
+    private FeedRepository.Article reading;
+    private boolean busy=false;
+    private ProgressBar readingProgress;
 
-    @Override public void onCreate(Bundle savedState) {
-        super.onCreate(savedState);
-        store=new FolioStore(this);
+    @Override public void onCreate(Bundle state){
+        super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-        buildShell();
+            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        learning=new LearningStore(this);
+        feed=new FeedRepository(this);
         render();
-        refresh(false);
+        if(!feed.hasCache)refresh();
+        else if(System.currentTimeMillis()-feed.lastSync>15*60*1000L)refresh();
     }
-
-    private int d(float v){return Math.round(getResources().getDisplayMetrics().density*v);}
-    private GradientDrawable shape(int color,float radius,int border){
-        GradientDrawable bg=new GradientDrawable();
-        bg.setColor(color);bg.setCornerRadius(d(radius));
-        if(border!=0)bg.setStroke(d(1),border);
-        return bg;
+    private int d(float v){return Math.round(v*getResources().getDisplayMetrics().density);}
+    private LinearLayout column(){
+        LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.VERTICAL);return v;
     }
-    private LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;}
-    private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);return l;}
-    private LinearLayout.LayoutParams lp(int w,int h){return new LinearLayout.LayoutParams(w<0?w:d(w),h<0?h:d(h));}
-    private FrameLayout.LayoutParams fp(int w,int h,int gravity){return new FrameLayout.LayoutParams(w<0?w:d(w),h<0?h:d(h),gravity);}
-    private void pad(View v,int h,int vert){v.setPadding(d(h),d(vert),d(h),d(vert));}
-    private TextView text(String s,float size,int color,boolean serif,boolean bold){
-        TextView v=new TextView(this);v.setText(s);v.setTextSize(size);v.setTextColor(color);
-        v.setIncludeFontPadding(true);
-        if(serif)v.setTypeface(Typeface.create("serif",bold?Typeface.BOLD:Typeface.NORMAL));
-        else if(bold)v.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));
-        v.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY);
+    private LinearLayout row(){
+        LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.HORIZONTAL);
+        v.setGravity(Gravity.CENTER_VERTICAL);return v;
+    }
+    private TextView text(String value,float size,int color,Typeface font) {
+        TextView v=new TextView(this);
+        v.setText(value);v.setTextSize(size);v.setTextColor(color);
+        v.setTypeface(font);v.setIncludeFontPadding(false);
+        v.setLineSpacing(d(3),1.04f);
         return v;
     }
-    private TextView label(String s){TextView t=text(s,10,MUTED,false,true);t.setLetterSpacing(.12f);return t;}
-    private View line(){View v=new View(this);v.setBackgroundColor(LINE);return v;}
-    private void gap(LinearLayout parent,int height){View v=new View(this);parent.addView(v,lp(-1,height));}
-    private void add(LinearLayout parent,View child){parent.addView(child,lp(-1,-2));}
-    private void sectionRule(LinearLayout p){gap(p,20);p.addView(line(),lp(-1,1));gap(p,20);}
-    private TextView pill(String title,boolean filled){
-        TextView t=text(title,12,filled?WHITE:GREEN,false,true);
-        t.setGravity(Gravity.CENTER);pad(t,15,9);
-        t.setBackground(shape(filled?INK:SURFACE,50,filled?0:LINE));return t;
+    private TextView caption(String value) {
+        TextView v=text(value,11,MUTED,SANS_MED);
+        v.setLetterSpacing(.13f);return v;
     }
-    private LinearLayout card(){LinearLayout c=column();pad(c,19,19);c.setBackground(shape(SURFACE,18,LINE));return c;}
-    private TextView primary(String s){
-        TextView t=text(s,14,WHITE,false,true);pad(t,22,16);t.setGravity(Gravity.CENTER);
-        t.setBackground(shape(INK,13,0));t.setMinHeight(d(50));return t;
+    private GradientDrawable shape(int color,int corner) {
+        GradientDrawable g=new GradientDrawable();g.setColor(color);g.setCornerRadius(d(corner));return g;
     }
-    private TextView secondary(String s){
-        TextView t=text(s,14,INK,false,true);pad(t,18,14);t.setGravity(Gravity.CENTER);
-        t.setBackground(shape(SURFACE,13,LINE));t.setMinHeight(d(48));return t;
+    private GradientDrawable outlined(int color,int corner,int border) {
+        GradientDrawable g=shape(color,corner);g.setStroke(d(1),border);return g;
     }
-    private void buildShell(){
-        frame=new FrameLayout(this);frame.setBackgroundColor(BG);
-        shell=column();frame.addView(shell,fp(-1,-1,Gravity.TOP));
-        top=row();top.setBackgroundColor(BG);top.setPadding(d(22),d(12),d(18),d(9));
-        shell.addView(top,lp(-1,65));
-        loading=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
-        loading.setMax(100);loading.setIndeterminate(true);loading.setVisibility(View.GONE);
-        shell.addView(loading,lp(-1,2));
-        pageHost=new FrameLayout(this);
-        shell.addView(pageHost,new LinearLayout.LayoutParams(-1,0,1));
-        bottom=row();bottom.setGravity(Gravity.CENTER);
-        bottom.setBackgroundColor(SURFACE);
-        bottom.setPadding(d(7),d(6),d(7),d(7));
-        shell.addView(line(),lp(-1,1));
-        shell.addView(bottom,lp(-1,68));
-        setContentView(frame);
+    private void surface(View v,int color,int radius,boolean outline){
+        GradientDrawable gd=outline?outlined(color,radius,LINE):shape(color,radius);
+        v.setBackground(new RippleDrawable(ColorStateList.valueOf(0x18274B39),gd,null));
     }
-    private View iconButton(String kind,String description,Runnable action){
-        FrameLayout b=new FrameLayout(this);b.setBackground(shape(SOFT,14,0));
-        Mark icon=new Mark(kind,GREEN);b.addView(icon,fp(23,23,Gravity.CENTER));
-        b.setContentDescription(description);b.setOnClickListener(v->action.run());return b;
+    private LinearLayout.LayoutParams lp(int w,int h){
+        return new LinearLayout.LayoutParams(w<0?w:d(w),h<0?h:d(h));
     }
-    private void toolbar(){
-        top.removeAllViews();
-        if(inArticle){
-            View back=iconButton("back","返回",()->closeArticle());top.addView(back,lp(45,45));
-            TextView crumb=text("THE READING ROOM",11,MUTED,false,true);crumb.setLetterSpacing(.08f);
-            LinearLayout.LayoutParams middle=new LinearLayout.LayoutParams(0,-2,1);
-            middle.leftMargin=d(13);top.addView(crumb,middle);
-            View speak=iconButton("sound","朗读文章",()->speak(current!=null?current.reading:""));
-            top.addView(speak,lp(45,45));
-            View fav=iconButton("save","收藏文章",()->{
-                if(current!=null){store.toggleFavorite(current.id);toast(store.favorite(current.id)?"已加入收藏":"已取消收藏");}
-            });
-            LinearLayout.LayoutParams p=lp(45,45);p.leftMargin=d(9);top.addView(fav,p);
-        }else{
-            LinearLayout logo=column();
-            TextView brand=text("folio.",30,INK,true,true);brand.setLetterSpacing(-.06f);add(logo,brand);
-            TextView sub=text("DAILY ENGLISH JOURNAL",9,MUTED,false,true);sub.setLetterSpacing(.10f);add(logo,sub);
-            top.addView(logo,new LinearLayout.LayoutParams(0,-2,1));
-            View sync=iconButton("refresh","同步最新文章",()->refresh(true));
-            top.addView(sync,lp(45,45));
-        }
+    private void pad(View v,int left,int top,int right,int bottom){
+        v.setPadding(d(left),d(top),d(right),d(bottom));
     }
-    private void navigation(){
-        bottom.removeAllViews();
-        if(inArticle){bottom.setVisibility(View.GONE);return;}
-        bottom.setVisibility(View.VISIBLE);
-        String[] captions={"今日","词库","复习","我的"};
-        String[] symbols={"home","book","layers","user"};
-        for(int i=0;i<4;i++){
-            final int next=i;
-            LinearLayout item=column();item.setGravity(Gravity.CENTER);
-            boolean active=(i==tab);
-            Mark glyph=new Mark(symbols[i],active?INK:MUTED);
-            item.addView(glyph,lp(22,22));
-            gap(item,4);
-            TextView caption=text(captions[i],11,active?INK:MUTED,false,active);
-            caption.setGravity(Gravity.CENTER);add(item,caption);
-            item.setBackground(shape(active?SOFT:SURFACE,14,0));
-            item.setContentDescription(captions[i]+"页面");
-            item.setOnClickListener(v->{tab=next;render();});
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
-            p.leftMargin=d(3);p.rightMargin=d(3);bottom.addView(item,p);
-        }
+    private void gap(LinearLayout parent,int px) {
+        View spacer=new View(this);parent.addView(spacer,lp(1,px));
     }
+    private TextView action(String title,boolean filled,Runnable run) {
+        TextView b=text(title,13,filled?Color.WHITE:GREEN,SANS_MED);
+        b.setGravity(Gravity.CENTER);b.setMinHeight(d(44));pad(b,17,11,17,11);
+        surface(b,filled?GREEN:SOFT,13,false);b.setOnClickListener(v->run.run());
+        return b;
+    }
+    private void addDivider(LinearLayout col){
+        View v=new View(this);v.setBackgroundColor(LINE);col.addView(v,lp(-1,1));
+    }
+    private void setStatus(String value){Toast.makeText(this,value,Toast.LENGTH_SHORT).show();}
     private void render(){
-        toolbar();navigation();
-        pageHost.removeAllViews();
-        if(inArticle && current!=null){pageHost.addView(readerPage(),fp(-1,-1,Gravity.TOP));}
-        else{
-            View page=tab==0?home():tab==1?wordbook():tab==2?reviewPage():profile();
-            pageHost.addView(page,fp(-1,-1,Gravity.TOP));
+        outer=column();outer.setBackgroundColor(BG);
+        outer.setFocusableInTouchMode(true);
+        body=column();
+        outer.addView(body,new LinearLayout.LayoutParams(-1,0,1));
+        if(reading!=null)renderReader();else {
+            if(activeTab==0)home();
+            else if(activeTab==1)library();
+            else if(activeTab==2)wordbook();
+            else profile();
+            navbar=bottomNavigation();outer.addView(navbar,lp(-1,76));
         }
-        pageHost.setAlpha(.82f);pageHost.animate().alpha(1).setDuration(150).start();
+        setContentView(outer);
     }
-    private ScrollView scroll(LinearLayout content){
-        ScrollView sv=new ScrollView(this);sv.setFillViewport(true);
-        sv.setClipToPadding(false);sv.setVerticalScrollBarEnabled(false);
-        sv.addView(content,new ScrollView.LayoutParams(-1,-2));return sv;
+    private void switchTab(int tab){
+        if(tab==activeTab&&reading==null)return;
+        activeTab=tab;reading=null;render();
     }
-    private LinearLayout page(){
-        LinearLayout content=column();content.setPadding(d(22),d(20),d(22),d(35));return content;
-    }
-    private String date(){
-        return new SimpleDateFormat("EEEE · MMMM d, yyyy",Locale.ENGLISH).format(new Date()).toUpperCase(Locale.ENGLISH);
-    }
-    private View home(){
-        LinearLayout p=page();add(p,label(date()));gap(p,11);
-        TextView heading=text("Read a little.\nThink a lot.",41,INK,true,false);
-        heading.setLetterSpacing(-.04f);heading.setLineSpacing(d(2),1f);add(p,heading);gap(p,12);
-        add(p,text("把世界装进每天十五分钟的英语阅读。",13,MUTED,false,false));gap(p,26);
-        LinearLayout metrics=row();
-        TextView words=pill(store.wordsCount()+" 词已收藏",false);
-        metrics.addView(words,lp(-2,-2));LinearLayout.LayoutParams countLp=lp(-2,-2);countLp.leftMargin=d(9);
-        TextView progress=pill(store.readCount()+" 篇已读",false);metrics.addView(progress,countLp);
-        add(p,metrics);
-        sectionRule(p);
-        LinearLayout tools=row();TextView title=label("TODAY'S SELECTION");
-        tools.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        TextView status=text(syncing?"同步中":store.lastSync().isEmpty()?"等待同步":"已同步",11,MUTED,false,false);
-        add(tools,status);add(p,tools);gap(p,15);
-        List<FolioStore.Article> articles=store.articles();
-        if(articles.isEmpty()){
-            LinearLayout empty=card();add(empty,text("打开世界，从第一篇开始。",25,INK,true,false));gap(empty,12);
-            add(empty,text("还没有已保存的外刊内容。连接网络后即可同步，每次打开应用也会尝试更新。",13,MUTED,false,false));gap(empty,18);
-            TextView retry=primary("获取今日外刊  ↗");retry.setOnClickListener(v->refresh(true));add(empty,retry);
-            add(p,empty);return scroll(p);
+    private LinearLayout bottomNavigation(){
+        LinearLayout wrap=column();
+        View line=new View(this);line.setBackgroundColor(LINE);wrap.addView(line,lp(-1,1));
+        LinearLayout bar=row();bar.setGravity(Gravity.CENTER);bar.setBackgroundColor(BG);
+        String[] names={"今日","收藏","生词","我的"};
+        for(int i=0;i<4;i++){
+            final int tab=i;
+            boolean selected=activeTab==i;
+            LinearLayout item=column();item.setGravity(Gravity.CENTER);
+            item.setContentDescription(names[i]+"选项卡");
+            item.setClickable(true);item.setFocusable(true);
+            IconView icon=new IconView(i,selected?GREEN:MUTED);
+            item.addView(icon,lp(26,27));
+            TextView label=text(names[i],11,selected?GREEN:MUTED,selected?SANS_MED:SANS);
+            label.setGravity(Gravity.CENTER);item.addView(label,lp(-1,20));
+            if(selected){View rule=new View(this);rule.setBackground(shape(GREEN,4));item.addView(rule,lp(15,3));}
+            else item.addView(new View(this),lp(15,3));
+            surface(item,BG,11,false);
+            item.setOnClickListener(v->switchTab(tab));
+            bar.addView(item,new LinearLayout.LayoutParams(0,-1,1));
         }
-        HorizontalScrollView filterScroll=new HorizontalScrollView(this);
-        filterScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout filters=row();
-        for(int i=0;i<category.length;i++){
-            final int n=i;
-            TextView chip=pill(category[i],topic==i);
-            chip.setOnClickListener(v->{topic=n;render();});
-            LinearLayout.LayoutParams cp=lp(-2,-2);cp.rightMargin=d(8);filters.addView(chip,cp);
-        }
-        filterScroll.addView(filters);add(p,filterScroll);gap(p,20);
-        int shown=0;
-        for(FolioStore.Article a:articles){
-            if(topic>0 && !a.topic.equals(category[topic]))continue;
-            final FolioStore.Article article=a;
-            LinearLayout c=card();
-            LinearLayout meta=row();TextView type=label(a.topic+"   /   "+a.source);
-            meta.addView(type,new LinearLayout.LayoutParams(0,-2,1));
-            if(store.isRead(a.id))add(meta,text("✓ 已读",11,GREEN,false,true));
-            add(c,meta);gap(c,11);
-            TextView h=text(a.title,shown==0?28:22,INK,true,false);
-            h.setLineSpacing(d(2),1f);add(c,h);gap(c,13);
-            TextView brief=text(a.summary,13,MUTED,false,false);
-            brief.setMaxLines(3);brief.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            add(c,brief);gap(c,19);
-            c.addView(line(),lp(-1,1));gap(c,12);
-            LinearLayout action=row();
-            TextView read=label("OPEN READING  →");
-            action.addView(read,new LinearLayout.LayoutParams(0,-2,1));
-            if(store.favorite(a.id))add(action,text("★ 收藏",11,GREEN,false,true));
-            add(c,action);
-            c.setClickable(true);c.setOnClickListener(v->openArticle(article));
-            LinearLayout.LayoutParams cp=lp(-1,-2);cp.bottomMargin=d(12);
-            p.addView(c,cp);shown++;
-        }
-        if(shown==0)add(p,text("这个主题今天暂时没有精选。",14,MUTED,false,false));
-        gap(p,19);
-        add(p,label("内容来自公开媒体，精读材料为独立编写。点击“原文”可前往媒体网站。"));
-        return scroll(p);
+        wrap.addView(bar,lp(-1,75));return wrap;
     }
-    private void openArticle(FolioStore.Article a){
-        current=a;inArticle=true;render();
-    }
-    private void closeArticle(){inArticle=false;current=null;render();}
-    private View readerPage(){
-        final FolioStore.Article a=current;
-        LinearLayout p=page();
-        add(p,label(a.topic+"  /  "+a.source+"  /  ORIGINAL STUDY TEXT"));gap(p,12);
-        TextView title=text(a.title,34,INK,true,false);title.setLetterSpacing(-.025f);
-        title.setLineSpacing(d(2),1f);add(p,title);gap(p,16);
-        add(p,text(a.note,14,MUTED,false,false));gap(p,22);
-        LinearLayout settings=row();
-        TextView smaller=secondary("A−");smaller.setOnClickListener(v->{store.setFontSize(store.fontSize()-1);render();});
-        settings.addView(smaller,lp(60,48));
-        TextView larger=secondary("A+");larger.setOnClickListener(v->{store.setFontSize(store.fontSize()+1);render();});
-        LinearLayout.LayoutParams big=lp(60,48);big.leftMargin=d(8);settings.addView(larger,big);
-        TextView speak=secondary("♪ 朗读");speak.setOnClickListener(v->speak(a.reading));
-        LinearLayout.LayoutParams sl=new LinearLayout.LayoutParams(0,d(48),1);sl.leftMargin=d(8);
-        settings.addView(speak,sl);add(p,settings);gap(p,25);
-        p.addView(line(),lp(-1,1));gap(p,20);
-        String[] paragraphs=a.reading.split("\\n\\s*\\n");
-        for(String para:paragraphs){
-            if(para.trim().isEmpty())continue;
-            TextView body=text("",store.fontSize(),INK,true,false);
-            body.setLineSpacing(d(8),1.04f);
-            SpannableString span=new SpannableString(para.trim());
-            Matcher matcher=WORD.matcher(para.trim());
-            while(matcher.find()){
-                String word=matcher.group();
-                String known=lookup(a,word);
-                span.setSpan(new ClickableSpan(){
-                    @Override public void onClick(View view){showWord(word,known);}
-                    @Override public void updateDrawState(TextPaint ds){
-                        ds.setColor(INK);ds.setUnderlineText(false);
-                    }
-                },matcher.start(),matcher.end(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    private final class IconView extends View {
+        private final int type,color;
+        private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        IconView(int type,int color){super(MainActivity.this);this.type=type;this.color=color;}
+        @Override protected void onDraw(Canvas real){
+            super.onDraw(real);Canvas c=real;int save=c.save();
+            c.translate((getWidth()-d(24))/2f,(getHeight()-d(24))/2f);
+            c.scale(d(1),d(1));p.setColor(color);p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(1.85f);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);
+            Path path=new Path();
+            switch(type){
+                case 0:
+                    path.moveTo(3,11);path.lineTo(12,3);path.lineTo(21,11);
+                    path.moveTo(6,10);path.lineTo(6,21);path.lineTo(18,21);path.lineTo(18,10);
+                    path.moveTo(10,21);path.lineTo(10,14);path.lineTo(14,14);path.lineTo(14,21);
+                    c.drawPath(path,p);break;
+                case 1:
+                    path.moveTo(6,3);path.lineTo(18,3);path.quadTo(20,3,20,5);
+                    path.lineTo(20,22);path.lineTo(12,17);path.lineTo(4,22);
+                    path.lineTo(4,5);path.quadTo(4,3,6,3);c.drawPath(path,p);break;
+                case 2:
+                    c.drawRoundRect(3,4,21,20,3,3,p);
+                    c.drawLine(7,9,17,9,p);c.drawLine(7,13,15,13,p);
+                    c.drawLine(7,17,13,17,p);break;
+                default:
+                    c.drawCircle(12,8,4,p);c.drawArc(4,14,20,25,190,160,false,p);break;
             }
-            body.setText(span);body.setMovementMethod(LinkMovementMethod.getInstance());
-            body.setHighlightColor(SOFT);
-            add(p,body);gap(p,22);
+            c.restoreToCount(save);
         }
-        LinearLayout notice=card();notice.setBackground(shape(SOFT,15,0));
-        add(notice,label("VOCABULARY / TAP TO SAVE"));gap(notice,7);
-        add(notice,text("点击正文中的英文单词，可查阅重点释义并加入生词本。",13,GREEN,false,false));
-        gap(notice,16);
-        LinearLayout chips=row();chips.setOrientation(LinearLayout.HORIZONTAL);
-        for(int i=0;i<Math.min(4,a.vocabulary.length());i++){
-            JSONObject v=a.vocabulary.optJSONObject(i);if(v==null)continue;
-            String word=v.optString("word");String meaning=v.optString("meaning");
-            TextView chip=pill(word,false);
-            chip.setOnClickListener(w->showWord(word,meaning));
-            LinearLayout.LayoutParams cl=lp(-2,-2);cl.rightMargin=d(8);
-            chips.addView(chip,cl);
+    }
+    private ScrollView scroll(LinearLayout container){
+        ScrollView s=new ScrollView(this);
+        s.setFillViewport(false);s.setClipToPadding(false);
+        s.setVerticalScrollBarEnabled(false);
+        container.addView(s,new LinearLayout.LayoutParams(-1,0,1));
+        return s;
+    }
+    private LinearLayout screenContent(ScrollView s){
+        LinearLayout col=column();pad(col,22,18,22,36);s.addView(col);return col;
+    }
+    private LinearLayout top(String eyebrow,String title,String sub){
+        LinearLayout col=column();
+        LinearLayout cap=row();
+        TextView logo=text("folio.",32,INK,SERIF_BOLD);
+        logo.setTypeface(Typeface.create("serif",Typeface.ITALIC));
+        cap.addView(logo,new LinearLayout.LayoutParams(0,d(45),1));
+        TextView stamp=caption(eyebrow);stamp.setGravity(Gravity.RIGHT);
+        cap.addView(stamp,lp(-2,35));col.addView(cap,lp(-1,-2));gap(col,22);
+        if(title!=null){
+            col.addView(text(title,30,INK,SERIF),lp(-1,-2));gap(col,8);
         }
-        add(notice,chips);add(p,notice);
-        gap(p,23);
-        add(p,label("ONE QUESTION TO THINK ABOUT"));gap(p,11);
-        add(p,text(a.question.isEmpty()?"这篇文章最值得思考的问题是什么？":a.question,21,INK,true,false));
-        gap(p,13);
-        EditText notes=new EditText(this);notes.setText(store.note(a.id));
-        notes.setTextSize(14);notes.setTextColor(INK);notes.setHintTextColor(MUTED);
-        notes.setHint("写下你的理解、疑问或想表达的英文句子…");
-        notes.setGravity(Gravity.TOP);notes.setMinLines(3);notes.setMaxLines(8);
-        notes.setPadding(d(15),d(15),d(15),d(15));
-        notes.setBackground(shape(SURFACE,13,LINE));add(p,notes);gap(p,10);
-        TextView save=secondary("保存阅读札记");save.setOnClickListener(v->{
-            store.setNote(a.id,notes.getText().toString());toast("札记已保存到本机");
-        });add(p,save);
-        gap(p,24);
-        TextView done=primary(store.isRead(a.id)?"✓ 已完成阅读":"✓ 标记为已读");
-        done.setOnClickListener(v->{store.setNote(a.id,notes.getText().toString());store.markRead(a.id);toast("已保存阅读记录");render();});
-        add(p,done);gap(p,10);
-        TextView original=secondary("在原媒体阅读文章  ↗");
-        original.setOnClickListener(v->openExternal(a.url));add(p,original);gap(p,22);
-        add(p,label("版权说明：本页英语短文和导读为原创学习材料，不是媒体文章全文。"));
-        ScrollView sc=scroll(p);return sc;
+        if(sub!=null){TextView t=text(sub,13,MUTED,SANS);col.addView(t);}
+        gap(col,20);addDivider(col);gap(col,18);
+        return col;
     }
-    private String lookup(FolioStore.Article article,String word){
-        JSONObject stored=store.word(word);
-        if(stored!=null&&!stored.optString("meaning").isEmpty())return stored.optString("meaning");
-        for(int i=0;i<article.vocabulary.length();i++){
-            JSONObject v=article.vocabulary.optJSONObject(i);
-            if(v!=null&&v.optString("word").equalsIgnoreCase(word))return v.optString("meaning");
-        }
-        return "";
-    }
-    private void showWord(String word,String meaning){
-        LinearLayout dialog=column();pad(dialog,20,10);
-        TextView hint=text("中文释义（可自行填写）",12,MUTED,false,false);add(dialog,hint);gap(dialog,10);
-        EditText edit=new EditText(this);edit.setSingleLine(false);
-        edit.setText(meaning);edit.setHint("输入释义后加入生词本");
-        edit.setTextSize(15);add(dialog,edit);
-        AlertDialog d=new AlertDialog.Builder(this)
-                .setTitle(word).setView(dialog)
-                .setNeutralButton("发音",(di,w)->speak(word))
-                .setNegativeButton("取消",null)
-                .setPositiveButton("收藏",(di,w)->{
-                    store.saveWord(word,edit.getText().toString().trim());
-                    toast("已加入词库 · "+word);
-                }).create();
-        d.show();
-    }
-    private View wordbook(){
-        LinearLayout p=page();add(p,label("PERSONAL VOCABULARY"));gap(p,9);
-        add(p,text("Words worth keeping.",33,INK,true,false));gap(p,8);
-        add(p,text("不只是收藏单词，也记住它们出现的语境。",13,MUTED,false,false));gap(p,22);
-        LinearLayout stats=card();add(stats,text(store.wordsCount()+" 个单词",29,INK,true,false));
-        add(stats,text(store.dueCount()+" 个等待复习 · 点击单词可查看或修改释义",12,MUTED,false,false));
-        add(p,stats);gap(p,22);
-        JSONObject words=store.words();List<String> keys=store.dueWords(true);
-        if(keys.isEmpty()){
-            LinearLayout empty=card();add(empty,text("你的词库还是空的。",22,INK,true,false));gap(empty,8);
-            add(empty,text("在阅读页点一下英文单词，即可保存到这里。",13,MUTED,false,false));add(p,empty);
-        }else{
-            EditText search=new EditText(this);search.setSingleLine(true);search.setTextSize(14);
-            search.setHint("查找收藏过的词汇");search.setPadding(d(14),d(12),d(14),d(12));
-            search.setBackground(shape(SURFACE,14,LINE));add(p,search);gap(p,14);
-            LinearLayout list=column();add(p,list);
-            Runnable draw=()->{
-                list.removeAllViews();String filter=search.getText().toString().trim().toLowerCase(Locale.ROOT);
-                for(String k:keys){
-                    JSONObject v=words.optJSONObject(k);if(v==null)continue;
-                    String meaning=v.optString("meaning","");
-                    if(!k.contains(filter)&&!meaning.contains(filter))continue;
-                    LinearLayout c=card();LinearLayout bar=row();
-                    TextView w=text(k,23,INK,true,false);bar.addView(w,new LinearLayout.LayoutParams(0,-2,1));
-                    TextView speaker=pill("♪",false);speaker.setOnClickListener(x->speak(k));bar.addView(speaker);
-                    add(c,bar);gap(c,7);add(c,text(meaning.isEmpty()?"暂无释义，点击补充":meaning,13,MUTED,false,false));
-                    gap(c,8);add(c,label(v.optLong("due",0)<=System.currentTimeMillis()?"● 待复习":"○ 已安排复习"));
-                    c.setOnClickListener(x->showWord(k,meaning));
-                    LinearLayout.LayoutParams cl=lp(-1,-2);cl.bottomMargin=d(9);list.addView(c,cl);
-                }
-            };
-            search.addTextChangedListener(new android.text.TextWatcher(){
-                public void beforeTextChanged(CharSequence s,int st,int count,int after){}
-                public void onTextChanged(CharSequence s,int st,int before,int count){draw.run();}
-                public void afterTextChanged(android.text.Editable e){}
-            });draw.run();
-        }
-        return scroll(p);
-    }
-    private View reviewPage(){
-        LinearLayout p=page();add(p,label("SPACED REPETITION"));gap(p,9);
-        add(p,text("Make it stick.",34,INK,true,false));gap(p,7);
-        add(p,text("先回忆，再翻面。根据真实记忆情况安排下次复习。",13,MUTED,false,false));gap(p,23);
-        if(reviewQueue.isEmpty()){
-            int due=store.dueCount();
-            LinearLayout c=card();add(c,label("TODAY'S REVIEW"));gap(c,12);
-            add(c,text(""+due,57,INK,true,false));add(c,text("个待复习单词",14,MUTED,false,false));
-            gap(c,25);
-            TextView begin=primary(due>0?"开始今日复习  →":"练习全部已收藏单词  →");
-            begin.setOnClickListener(v->{
-                reviewQueue=new ArrayList<>(store.dueWords(due==0));reviewIndex=0;revealed=false;render();
-                if(reviewQueue.isEmpty())toast("先阅读并收藏几个单词");
-            });add(c,begin);add(p,c);gap(p,20);
-            add(p,label("复习间隔：1 / 3 / 7 / 14 / 30 天"));
-        }else{
-            if(reviewIndex>=reviewQueue.size()){
-                LinearLayout card=card();add(card,label("SESSION COMPLETE"));gap(card,12);
-                add(card,text("Good work.",43,INK,true,false));gap(card,10);
-                add(card,text("本轮 "+reviewQueue.size()+" 个单词已完成。你可以回到阅读，继续积累新的语言材料。",14,MUTED,false,false));
-                gap(card,24);
-                TextView again=primary("完成并返回");again.setOnClickListener(v->{reviewQueue.clear();render();});add(card,again);add(p,card);
-            }else{
-                String word=reviewQueue.get(reviewIndex);
-                JSONObject obj=store.word(word);String meaning=obj==null?"":obj.optString("meaning");
-                add(p,label((reviewIndex+1)+" / "+reviewQueue.size()+"  ·  MEMORY CHECK"));gap(p,17);
-                LinearLayout card=card();card.setMinimumHeight(d(295));card.setGravity(Gravity.CENTER);
-                add(card,label(revealed?"THE MEANING":"RECALL THE MEANING"));gap(card,27);
-                TextView giant=text(word,40,INK,true,false);giant.setGravity(Gravity.CENTER);add(card,giant);
-                gap(card,20);
-                TextView answer=text(revealed?(meaning.isEmpty()?"暂无释义":meaning):"先在心里想想它的意思",15,MUTED,false,false);
-                answer.setGravity(Gravity.CENTER);add(card,answer);add(p,card);gap(p,16);
-                if(!revealed){
-                    TextView flip=primary("查看释义  ↗");flip.setOnClickListener(v->{revealed=true;render();});add(p,flip);
-                }else{
-                    LinearLayout actions=row();
-                    TextView forget=secondary("还没记住");forget.setOnClickListener(v->submitReview(word,false));
-                    actions.addView(forget,new LinearLayout.LayoutParams(0,-2,1));
-                    TextView known=primary("记住了 ✓");known.setOnClickListener(v->submitReview(word,true));
-                    LinearLayout.LayoutParams pl=new LinearLayout.LayoutParams(0,-2,1);pl.leftMargin=d(10);actions.addView(known,pl);add(p,actions);
-                }
-                gap(p,16);
-                TextView cancel=label("退出本轮复习");cancel.setGravity(Gravity.CENTER);pad(cancel,10,15);
-                cancel.setOnClickListener(v->{reviewQueue.clear();render();});add(p,cancel);
-            }
-        }
-        return scroll(p);
-    }
-    private void submitReview(String word,boolean remembered){
-        store.review(word,remembered);reviewIndex++;revealed=false;render();
-    }
-    private View profile(){
-        LinearLayout p=page();add(p,label("YOUR LEARNING SPACE"));gap(p,10);
-        add(p,text("A little, every day.",34,INK,true,false));gap(p,22);
-        LinearLayout a=row();
-        String[] nums={""+store.readCount(),""+store.wordsCount(),""+store.reviewCount()};
-        String[] captions={"完成阅读","收藏单词","复习次数"};
-        for(int i=0;i<3;i++){
-            LinearLayout c=column();c.setGravity(Gravity.CENTER);c.setPadding(d(3),d(18),d(3),d(18));
-            c.setBackground(shape(SURFACE,12,LINE));
-            TextView n=text(nums[i],29,INK,true,false);n.setGravity(Gravity.CENTER);add(c,n);
-            TextView l=text(captions[i],11,MUTED,false,false);l.setGravity(Gravity.CENTER);add(c,l);
-            LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(0,-2,1);if(i>0)pp.leftMargin=d(8);a.addView(c,pp);
-        }
-        add(p,a);gap(p,25);
-        add(p,label("YOUR COLLECTION"));gap(p,12);
-        int count=0;
-        for(FolioStore.Article art:store.articles()){
-            if(!store.favorite(art.id))continue;
-            count++;
-            LinearLayout c=card();add(c,label(art.source+" / "+art.topic));gap(c,8);
-            add(c,text(art.title,21,INK,true,false));gap(c,10);
-            add(c,label("打开收藏文章 →"));
-            c.setOnClickListener(v->openArticle(art));
-            LinearLayout.LayoutParams cp=lp(-1,-2);cp.bottomMargin=d(9);p.addView(c,cp);
-        }
-        if(count==0)add(p,text("还没有收藏文章。阅读时点击右上角书签即可收藏。",13,MUTED,false,false));
-        sectionRule(p);
-        add(p,label("SYNC & PRIVACY"));gap(p,12);
-        LinearLayout status=card();add(status,text("在线更新 · 本地保存",19,INK,true,false));gap(status,10);
-        add(status,text("每天打开或手动刷新时下载最新精读；生词、收藏和札记留在本机。",13,MUTED,false,false));
-        if(!store.lastSync().isEmpty()){gap(status,8);add(status,label("上次同步："+store.lastSync()));}
-        gap(status,14);
-        TextView reload=secondary("立即同步新文章");reload.setOnClickListener(v->refresh(true));add(status,reload);
-        add(p,status);gap(p,14);
-        LinearLayout privacy=card();add(privacy,label("READING DATA"));gap(privacy,8);
-        add(privacy,text("个人进度仅存储在当前 Android 应用中。卸载应用会删除这些记录。",13,MUTED,false,false));
-        gap(privacy,12);
-        TextView share=secondary("导出学习数据（文本）");
-        share.setOnClickListener(v->exportData());add(privacy,share);add(p,privacy);gap(p,22);
-        add(p,label("FOLIO NATIVE  ·  VERSION 0.4.0"));
-        return scroll(p);
-    }
-    private void exportData(){
-        try{
-            JSONObject export=new JSONObject();
-            export.put("format","folio-native-backup-v1");
-            export.put("words",store.words());
-            export.put("exportedAt",new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",Locale.US).format(new Date()));
-            Intent send=new Intent(Intent.ACTION_SEND);
-            send.setType("application/json");send.putExtra(Intent.EXTRA_TEXT,export.toString(2));
-            startActivity(Intent.createChooser(send,"导出生词数据"));
-        }catch(Exception e){toast("无法创建导出数据");}
-    }
-    private void openExternal(String address){
-        try{
-            Uri uri=Uri.parse(address);
-            if(!"https".equalsIgnoreCase(uri.getScheme()))return;
-            startActivity(new Intent(Intent.ACTION_VIEW,uri));
-        }catch(ActivityNotFoundException ex){toast("未找到可打开原文的浏览器");}
-    }
-    private void speak(String phrase){
-        if(phrase==null||phrase.isEmpty())return;
-        if(tts==null){
-            tts=new TextToSpeech(getApplicationContext(), status->{
-                ttsReady=status==TextToSpeech.SUCCESS;
-                if(ttsReady){tts.setLanguage(Locale.US);tts.setSpeechRate(.91f);tts.speak(phrase,TextToSpeech.QUEUE_FLUSH,null,"folio-read");}
-                else toast("系统朗读不可用");
-            });
-        }else if(ttsReady){tts.speak(phrase,TextToSpeech.QUEUE_FLUSH,null,"folio-read");}
-        else toast("语音引擎正在初始化");
-    }
-    private void refresh(boolean manual){
-        if(syncing)return;syncing=true;loading.setVisibility(View.VISIBLE);
-        if(manual)toast("正在获取最新外刊…");
-        executor.submit(()->{
-            HttpURLConnection connection=null;
-            String error=null,received=null;
-            try{
-                URL url=new URL(FolioStore.FEED_URL+"?t="+System.currentTimeMillis());
-                connection=(HttpURLConnection)url.openConnection();
-                connection.setConnectTimeout(10000);connection.setReadTimeout(12000);
-                connection.setRequestProperty("Accept","application/json");
-                connection.setRequestProperty("User-Agent","Folio-Android/0.4");
-                if(connection.getResponseCode()!=200)throw new java.io.IOException("HTTP "+connection.getResponseCode());
-                InputStream in=connection.getInputStream();
-                try(ByteArrayOutputStream buf=new ByteArrayOutputStream()){
-                    byte[] chunk=new byte[8192];int n;
-                    while((n=in.read(chunk))!=-1){buf.write(chunk,0,n);if(buf.size()>512000)throw new java.io.IOException("oversized feed");}
-                    received=buf.toString(StandardCharsets.UTF_8.name());
-                }
-                if(!store.validateFeed(received))throw new java.io.IOException("invalid feed");
-            }catch(Exception ex){error=ex.getMessage();}
-            finally{if(connection!=null)connection.disconnect();}
-            final String result=received,issue=error;
-            runOnUiThread(()->{
-                if(destroyed)return;
-                syncing=false;loading.setVisibility(View.GONE);
-                if(issue==null&&result!=null){
-                    store.saveFeed(result);
-                    store.setLastSync(new SimpleDateFormat("MM-dd HH:mm",Locale.getDefault()).format(new Date()));
-                    if(!inArticle)render();
-                    if(manual)toast("已同步最新英语精读");
-                }else{
-                    if(manual||store.articles().isEmpty())toast("联网失败"+(store.articles().isEmpty()?"，请稍后再试":"，继续使用离线内容"));
-                    if(!inArticle)render();
-                }
-            });
+    private void refresh(){
+        if(busy)return;busy=true;
+        feed.refresh((success,message)->{
+            busy=false;setStatus(message);
+            if(reading==null)render();
         });
     }
-    private void toast(String msg){Toast.makeText(this,msg,Toast.LENGTH_SHORT).show();}
+    private String dateText(){
+        return new SimpleDateFormat("EEEE · MMM d",Locale.ENGLISH)
+          .format(new Date()).toUpperCase(Locale.ENGLISH);
+    }
+    private void home(){
+        ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
+        LinearLayout headline=top(dateText(),null,null);col.addView(headline);
+        LinearLayout intro=row();intro.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout introTexts=column();
+        TextView h=text("Today's\nperspective.",41,INK,SERIF);
+        h.setLineSpacing(d(1),1.02f);introTexts.addView(h,lp(-1,-2));
+        gap(introTexts,9);introTexts.addView(text("读一篇好文章，打开一种新视角。",13,MUTED,SANS));
+        intro.addView(introTexts,new LinearLayout.LayoutParams(0,-2,1));
+        TextView sync=action(busy?"同步中":"↻",false,()->refresh());
+        sync.setContentDescription("从云端刷新外刊");
+        intro.addView(sync,lp(50,46));col.addView(intro);gap(col,24);
+        if(feed.articles.isEmpty()){
+            empty(col,"等待今日编辑稿","联网后可同步每日外刊；若网络中断，已缓存的文章仍可阅读。","重试同步",()->refresh());
+            return;
+        }
+        FrameLayout hero=new FrameLayout(this);
+        hero.setBackground(shape(DARKPANEL,21));hero.setClipToOutline(true);
+        LinearLayout heroCol=column();pad(heroCol,23,23,23,24);
+        TextView over=text("THE DAILY EDITION  /  今日精选",11,0xFFBDD0C1,SANS_MED);
+        over.setLetterSpacing(.11f);heroCol.addView(over);
+        gap(heroCol,27);
+        TextView heroTitle=text("A little more\ncurious, daily.",34,Color.WHITE,SERIF);
+        heroTitle.setLineSpacing(d(2),1.02f);heroCol.addView(heroTitle);
+        gap(heroCol,15);
+        heroCol.addView(text("每天一份英文深读  ·  轻量、专注、有收获",12,0xFFC7D5C8,SANS));
+        gap(heroCol,22);
+        LinearLayout stats=row();
+        TextView count=text(String.format(Locale.US,"%02d  STORIES",feed.articles.size()),11,Color.WHITE,SANS_MED);
+        stats.addView(count,new LinearLayout.LayoutParams(0,-2,1));
+        stats.addView(text(learning.dueCount()+"  WORDS DUE  ↗",11,0xFFC1DDC7,SANS_MED));
+        heroCol.addView(stats);hero.addView(heroCol);
+        col.addView(hero,lp(-1,-2));gap(col,29);
+        LinearLayout sec=row();
+        TextView section=text("读点新东西",22,INK,SERIF_BOLD);
+        sec.addView(section,new LinearLayout.LayoutParams(0,-2,1));
+        TextView searchButton=action("⌕  搜索",false,()->searchDialog());
+        sec.addView(searchButton,lp(-2,42));col.addView(sec);gap(col,14);
+        categoryFilters(col);gap(col,12);
+        int shown=0;
+        for(int i=0;i<feed.articles.size();i++){
+            FeedRepository.Article a=feed.articles.get(i);
+            if(!topic.equals("全部")&&!topic.equals(a.topic))continue;
+            if(!search.isEmpty()&&!a.title.toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT))
+                    &&!a.summary.toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT)))continue;
+            articleCard(col,a,i==0);shown++;
+            gap(col,12);
+        }
+        if(shown==0)empty(col,"没有找到相关内容","尝试其他分类或搜索词。","清除筛选",()->{search="";topic="全部";render();});
+        gap(col,13);
+        TextView foot=text(feed.lastSync==0?"尚未同步":"最近同步："+new SimpleDateFormat("MM/dd HH:mm",Locale.getDefault()).format(new Date(feed.lastSync))+"  ·  可离线阅读缓存文章",11,MUTED,SANS);
+        foot.setGravity(Gravity.CENTER);col.addView(foot);
+    }
+    private void searchDialog(){
+        EditText input=new EditText(this);input.setSingleLine(true);
+        input.setText(search);input.setHint("标题或文章内容");pad(input,20,10,20,10);
+        new AlertDialog.Builder(this).setTitle("搜索外刊").setView(input)
+            .setNegativeButton("取消",null)
+            .setNeutralButton("清除",(d,w)->{search="";render();})
+            .setPositiveButton("搜索",(d,w)->{search=input.getText().toString().trim();render();}).show();
+    }
+    private void categoryFilters(LinearLayout col){
+        HorizontalScrollView sc=new HorizontalScrollView(this);
+        sc.setHorizontalScrollBarEnabled(false);
+        LinearLayout chips=row();String[] categories={"全部","科技","科学","文化","思想"};
+        for(String value:categories){
+            boolean selected=value.equals(topic);
+            TextView chip=text(value,12,selected?Color.WHITE:GREEN,SANS_MED);
+            pad(chip,17,9,17,9);chip.setGravity(Gravity.CENTER);
+            surface(chip,selected?GREEN:SOFT,30,false);
+            LinearLayout.LayoutParams params=lp(-2,39);params.rightMargin=d(8);
+            chips.addView(chip,params);
+            chip.setOnClickListener(v->{topic=value;render();});
+        }
+        sc.addView(chips);col.addView(sc,lp(-1,43));
+    }
+    private void articleCard(LinearLayout col,FeedRepository.Article a,boolean first){
+        LinearLayout card=column();pad(card,19,19,19,17);
+        surface(card,PANEL,17,true);
+        card.setClickable(true);card.setFocusable(true);
+        card.setContentDescription("阅读 "+a.title);
+        card.setOnClickListener(v->openArticle(a));
+        LinearLayout meta=row();
+        TextView cat=caption(a.topic+" / "+a.source.toUpperCase(Locale.ENGLISH));
+        meta.addView(cat,new LinearLayout.LayoutParams(0,-2,1));
+        if(learning.isRead(a.url))meta.addView(text("✓ 已读",11,GREEN,SANS_MED));
+        else if(learning.isBookmarked(a.url))meta.addView(text("◆ 已收藏",11,GREEN,SANS_MED));
+        card.addView(meta);gap(card,14);
+        TextView title=text(a.title,first?24:21,INK,SERIF_BOLD);
+        title.setMaxLines(4);card.addView(title);
+        gap(card,11);
+        TextView desc=text(a.summary,13,MUTED,SANS);
+        desc.setMaxLines(first?4:3);desc.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        card.addView(desc);gap(card,19);
+        addDivider(card);gap(card,13);
+        LinearLayout bottom=row();
+        TextView minutes=caption(Math.max(2,a.readingText.split("\\s+").length/180)+" MIN  ·  "+a.words.size()+" 个重点词");
+        bottom.addView(minutes,new LinearLayout.LayoutParams(0,-2,1));
+        bottom.addView(text("精读  →",12,GREEN,SANS_MED));card.addView(bottom);
+        col.addView(card,lp(-1,-2));
+    }
+    private void empty(LinearLayout col,String heading,String detail,String cta,Runnable run){
+        LinearLayout card=column();pad(card,23,35,23,31);card.setGravity(Gravity.CENTER);
+        surface(card,PANEL,19,true);
+        TextView mark=text("◎",42,SAGE,SERIF);mark.setGravity(Gravity.CENTER);card.addView(mark);
+        gap(card,14);TextView title=text(heading,22,INK,SERIF_BOLD);title.setGravity(Gravity.CENTER);card.addView(title);
+        gap(card,9);TextView msg=text(detail,13,MUTED,SANS);msg.setGravity(Gravity.CENTER);card.addView(msg);
+        gap(card,23);card.addView(action(cta,true,run),lp(-2,44));col.addView(card,lp(-1,-2));
+    }
+    private void library(){
+        ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
+        col.addView(top("YOUR LIBRARY","收藏与历史","为真正值得反复阅读的文章留一个位置。"));
+        sectionLabel(col,"已收藏的文章");
+        int count=0;
+        for(FeedRepository.Article a:feed.articles){
+            if(learning.isBookmarked(a.url)){articleCard(col,a,false);gap(col,12);count++;}
+        }
+        if(count==0)empty(col,"还没有收藏","在阅读页面点击右上角的收藏标记，文章会留在这里。","去发现文章",()->switchTab(0));
+        gap(col,22);sectionLabel(col,"阅读完成");
+        int completed=0;
+        for(FeedRepository.Article a:feed.articles)if(learning.isRead(a.url)){
+            TextView t=action("✓  "+a.title,false,()->openArticle(a));
+            t.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);t.setMaxLines(2);col.addView(t,lp(-1,-2));gap(col,8);completed++;
+        }
+        if(completed==0)col.addView(text("读完文章后点击「完成本篇」，就能留下阅读记录。",13,MUTED,SANS));
+    }
+    private void sectionLabel(LinearLayout col,String value){
+        col.addView(text(value,22,INK,SERIF_BOLD));gap(col,16);
+    }
+    private void wordbook(){
+        ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
+        col.addView(top("PERSONAL LEXICON","你的生词本","不是简单收藏，而是把单词真正记住。"));
+        LinearLayout summary=row();summary.setGravity(Gravity.CENTER_VERTICAL);
+        TextView t=text("待复习  "+learning.dueCount(),16,GREEN,SANS_MED);
+        summary.addView(t,new LinearLayout.LayoutParams(0,d(46),1));
+        summary.addView(action("开始复习 →",true,()->reviewNext()),lp(-2,45));
+        col.addView(summary);gap(col,15);
+        List<LearningStore.Card> cards=learning.cards();
+        if(cards.isEmpty()){
+            empty(col,"从一篇文章开始","阅读时点击单词，查询释义并保存；它就会出现在这里。","去阅读",()->switchTab(0));
+            return;
+        }
+        for(LearningStore.Card card:cards){
+            LinearLayout item=column();pad(item,17,15,17,15);
+            surface(item,PANEL,14,true);
+            LinearLayout header=row();
+            TextView word=text(card.word,20,INK,SERIF_BOLD);
+            header.addView(word,new LinearLayout.LayoutParams(0,-2,1));
+            TextView right=caption(card.nextAt<=System.currentTimeMillis()?"今日待复习":"下次 "+LearningStore.shortDate(card.nextAt));
+            header.addView(right);item.addView(header);gap(item,7);
+            item.addView(text(card.meaning.isEmpty()?"已加入单词本":card.meaning,13,MUTED,SANS));
+            item.setOnClickListener(v->wordActions(card));
+            col.addView(item,lp(-1,-2));gap(col,9);
+        }
+    }
+    private void wordActions(LearningStore.Card card){
+        new AlertDialog.Builder(this).setTitle(card.word).setMessage(card.meaning)
+            .setNegativeButton("取消",null)
+            .setNeutralButton("移除",(d,w)->{learning.removeWord(card.word);render();})
+            .setPositiveButton("复习",(d,w)->reviewCard(card)).show();
+    }
+    private void reviewNext(){
+        long now=System.currentTimeMillis();
+        for(LearningStore.Card card:learning.cards()){
+            if(card.nextAt<=now){reviewCard(card);return;}
+        }
+        setStatus("今天的词汇已复习完毕");
+    }
+    private void reviewCard(LearningStore.Card card){
+        new AlertDialog.Builder(this).setTitle(card.word).setMessage("请先回想中文含义")
+            .setNegativeButton("稍后",null)
+            .setPositiveButton("查看答案",(d,w)->new AlertDialog.Builder(this)
+                .setTitle(card.word+" · "+card.meaning)
+                .setMessage("刚才你记住了吗？")
+                .setNegativeButton("没记住",(dialog,which)->{
+                    learning.grade(card.word,false);render();main.postDelayed(()->reviewNext(),170);
+                })
+                .setPositiveButton("记住了",(dialog,which)->{
+                    learning.grade(card.word,true);render();main.postDelayed(()->reviewNext(),170);
+                }).show()).show();
+    }
+    private void profile(){
+        ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
+        col.addView(top("YOUR LEARNING STUDIO","保持好奇","让习惯自然发生，不必追逐毫无意义的打卡数字。"));
+        LinearLayout stats=row();
+        statCard(stats,String.valueOf(learning.totalRead()),"累计读完");
+        View spacer=new View(this);stats.addView(spacer,lp(12,1));
+        statCard(stats,String.valueOf(learning.savedCount()),"生词收藏");
+        col.addView(stats);gap(col,23);
+        sectionLabel(col,"阅读设置");
+        settingsAction(col,"A−  缩小字号","当前正文 "+learning.fontSize()+"sp",()->{
+            learning.setFontSize(learning.fontSize()-1);render();setStatus("字号已调整");
+        });
+        settingsAction(col,"A+  放大字号","让长时间阅读更舒适",()->{
+            learning.setFontSize(learning.fontSize()+1);render();setStatus("字号已调整");
+        });
+        settingsAction(col,"↻  同步今日内容","文章来自 GitHub，刷新不用重新安装 APK",()->refresh());
+        gap(col,22);sectionLabel(col,"数据和隐私");
+        settingsAction(col,"↗  导出学习词汇","通过系统分享，保留自己的单词",()->shareWords());
+        settingsAction(col,"ⓘ  关于 Folio","原生 Android 客户端 · v0.4.0",()->new AlertDialog.Builder(this)
+            .setTitle("Folio · Native")
+            .setMessage("一款个人英语外刊学习应用。原生阅读、词汇复习与阅读记录保存在本地；英文学习材料通过在线数据更新。媒体原文版权属于原媒体。")
+            .setPositiveButton("知道了",null).show());
+        gap(col,35);
+        col.addView(text("MADE FOR SLOW READING, NOT ENDLESS SCROLLING.",10,MUTED,SANS_MED));
+    }
+    private void statCard(LinearLayout parent,String number,String label){
+        LinearLayout panel=column();pad(panel,19,19,19,19);surface(panel,SOFT,16,false);
+        panel.addView(text(number,30,GREEN,SERIF_BOLD));gap(panel,6);
+        panel.addView(text(label,12,MUTED,SANS_MED));parent.addView(panel,new LinearLayout.LayoutParams(0,-2,1));
+    }
+    private void settingsAction(LinearLayout col,String heading,String sub,Runnable action){
+        LinearLayout item=row();pad(item,16,14,13,14);
+        surface(item,PANEL,13,true);
+        LinearLayout words=column();words.addView(text(heading,15,INK,SANS_MED));gap(words,6);
+        words.addView(text(sub,11,MUTED,SANS));
+        item.addView(words,new LinearLayout.LayoutParams(0,-2,1));
+        item.addView(text("›",26,MUTED,SERIF));
+        item.setClickable(true);item.setOnClickListener(v->action.run());
+        col.addView(item,lp(-1,-2));gap(col,10);
+    }
+    private void shareWords(){
+        try{
+            JSONArray arr=new JSONArray();
+            for(LearningStore.Card c:learning.cards()){
+                JSONObject obj=new JSONObject();obj.put("word",c.word);obj.put("meaning",c.meaning);
+                obj.put("level",c.level);arr.put(obj);
+            }
+            Intent send=new Intent(Intent.ACTION_SEND);
+            send.setType("application/json");
+            send.putExtra(Intent.EXTRA_TEXT,arr.toString(2));
+            startActivity(Intent.createChooser(send,"导出 Folio 生词数据"));
+        }catch(Exception e){setStatus("导出失败");}
+    }
+    private void openArticle(FeedRepository.Article a){reading=a;render();}
+    private void renderReader(){
+        LinearLayout toolbar=row();pad(toolbar,15,9,16,9);
+        toolbar.setBackgroundColor(BG);
+        TextView back=action("‹",false,()->{reading=null;render();});
+        back.setTextSize(29);back.setContentDescription("返回文章列表");
+        toolbar.addView(back,lp(48,45));
+        TextView room=caption("THE READING ROOM");room.setGravity(Gravity.CENTER);
+        toolbar.addView(room,new LinearLayout.LayoutParams(0,-1,1));
+        boolean fav=learning.isBookmarked(reading.url);
+        TextView star=action(fav?"◆":"◇",false,()->{
+            learning.bookmark(reading.url,!learning.isBookmarked(reading.url));
+            setStatus(learning.isBookmarked(reading.url)?"已收藏文章":"已取消收藏");
+            render();
+        });
+        star.setTextSize(23);star.setContentDescription(fav?"取消收藏":"收藏文章");
+        toolbar.addView(star,lp(48,45));
+        body.addView(toolbar,lp(-1,64));
+        readingProgress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+        readingProgress.setMax(100);readingProgress.setProgress(0);
+        readingProgress.setProgressTintList(ColorStateList.valueOf(GREEN));
+        readingProgress.setProgressBackgroundTintList(ColorStateList.valueOf(SOFT));
+        body.addView(readingProgress,lp(-1,3));
+        ScrollView sc=scroll(body);LinearLayout col=screenContent(sc);
+        sc.setOnScrollChangeListener((View.OnScrollChangeListener)(view,x,y,oldX,oldY)->{
+            int maximum=Math.max(1,sc.getChildAt(0).getHeight()-sc.getHeight());
+            readingProgress.setProgress(Math.max(0,Math.min(100,100*y/maximum)));
+        });
+        col.addView(caption(reading.topic.toUpperCase(Locale.ENGLISH)+"  /  "+reading.source.toUpperCase(Locale.ENGLISH)));
+        gap(col,21);
+        TextView title=text(reading.title,34,INK,SERIF_BOLD);title.setLineSpacing(d(2),1.05f);
+        col.addView(title);gap(col,17);
+        TextView date=caption(formatDate(reading.date)+"  ·  "+
+            Math.max(2,reading.readingText.trim().split("\\s+").length/180)+" MIN READ");
+        col.addView(date);gap(col,25);addDivider(col);gap(col,23);
+        TextView notice=text("ORIGINAL LEARNING EDITION  ·  原创英语学习材料",10,GREEN,SANS_MED);
+        notice.setLetterSpacing(.06f);col.addView(notice);gap(col,16);
+        TextView content=text("",learning.fontSize(),INK,SERIF);
+        content.setLineSpacing(d(7),1.17f);
+        bindClickableWords(content,reading.readingText);
+        col.addView(content);gap(col,19);
+        TextView tip=text("轻触任意英文单词可查询与收藏  ·  仅此精读页",11,MUTED,SANS);
+        col.addView(tip);gap(col,20);
+        LinearLayout utilities=row();
+        utilities.addView(action("▶  英文朗读",false,()->speak()),new LinearLayout.LayoutParams(0,d(46),1));
+        View sep=new View(this);utilities.addView(sep,lp(9,1));
+        utilities.addView(action("A−",false,()->changeReadingFont(-1)),lp(52,46));
+        View sep2=new View(this);utilities.addView(sep2,lp(7,1));
+        utilities.addView(action("A+",false,()->changeReadingFont(1)),lp(52,46));
+        col.addView(utilities);gap(col,30);
+        if(!reading.editorNote.isEmpty()){
+            LinearLayout editorial=column();pad(editorial,18,20,18,20);
+            surface(editorial,SOFT,15,false);
+            editorial.addView(caption("EDITOR'S NOTE  /  中文导读"));gap(editorial,12);
+            editorial.addView(text(reading.editorNote,14,INK,SANS));
+            col.addView(editorial);gap(col,27);
+        }
+        sectionLabel(col,"重点词汇");
+        if(reading.words.size()>0){
+            for(FeedRepository.Word w:reading.words){
+                LinearLayout line=row();pad(line,2,11,2,11);
+                LinearLayout labels=column();labels.addView(text(w.word,19,INK,SERIF_BOLD));
+                gap(labels,4);labels.addView(text(w.meaning,13,MUTED,SANS));
+                line.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
+                TextView add=action(learning.hasWord(w.word)?"✓ 已保存":"＋ 收藏",false,
+                    ()->{learning.saveWord(w.word,w.meaning);setStatus(w.word+" 已加入生词本");render();});
+                line.addView(add,lp(-2,43));col.addView(line);addDivider(col);
+            }
+        }
+        gap(col,32);
+        sectionLabel(col,"读完以后");
+        if(!reading.question.isEmpty()){
+            col.addView(text(reading.question,17,INK,SERIF));gap(col,18);
+        }
+        col.addView(action("✎  阅读札记",false,()->editNote()),lp(-1,46));gap(col,12);
+        col.addView(action("◇  三题词汇小测",false,()->startQuiz()),lp(-1,46));gap(col,12);
+        boolean completed=learning.isRead(reading.url);
+        col.addView(action(completed?"✓  本篇已完成":"✓  完成本篇阅读",true,()->{
+            learning.markRead(reading.url);setStatus("阅读记录已保存");render();
+        }),lp(-1,52));gap(col,15);
+        TextView original=action("↗  前往媒体原文",false,()->openOriginal());
+        col.addView(original,lp(-1,46));gap(col,30);
+        TextView credit=text("本文精读材料独立编写，并非媒体原文全文。请通过原文链接访问出版方。",11,MUTED,SANS);
+        credit.setGravity(Gravity.CENTER);col.addView(credit);
+    }
+    private void changeReadingFont(int change){
+        learning.setFontSize(learning.fontSize()+change);render();setStatus("正文 "+learning.fontSize()+"sp");
+    }
+    private String formatDate(String date){
+        try{
+            String day=date.length()>=10?date.substring(0,10):date;
+            return day.replace("-"," / ");
+        }catch(Exception e){return "";}
+    }
+    private void openOriginal(){
+        if(reading==null)return;
+        try{
+            Uri url=Uri.parse(reading.url);
+            if(!"https".equals(url.getScheme()))return;
+            startActivity(new Intent(Intent.ACTION_VIEW,url));
+        }catch(ActivityNotFoundException e){setStatus("未找到浏览器");}
+    }
+    private void editNote(){
+        EditText input=new EditText(this);input.setMinLines(4);input.setMaxLines(9);
+        input.setGravity(Gravity.TOP|Gravity.START);
+        input.setText(learning.note(reading.url));
+        input.setHint("这篇文章改变了我的哪些想法？");pad(input,18,15,18,15);
+        final String url=reading.url;
+        new AlertDialog.Builder(this).setTitle("阅读札记")
+          .setView(input).setNegativeButton("取消",null)
+          .setPositiveButton("保存",(dialog,which)->{
+              String val=input.getText().toString().trim();
+              if(val.length()>6000){setStatus("札记过长，请缩短");return;}
+              learning.note(url,val);setStatus("札记已保存在本机");
+          }).show();
+    }
+    private void speak(){
+        if(speech==null){
+            speech=new TextToSpeech(getApplicationContext(),status->{
+                if(status==TextToSpeech.SUCCESS&&speech!=null){
+                    speech.setLanguage(Locale.US);speak();
+                }else setStatus("无法使用设备语音引擎");
+            });
+            return;
+        }
+        if(speech.isSpeaking()){speech.stop();setStatus("已停止朗读");return;}
+        if(reading!=null){
+            speech.setSpeechRate(.9f);
+            speech.speak(reading.readingText,TextToSpeech.QUEUE_FLUSH,null,"folio-reading");
+            setStatus("朗读已开始 · 再次点击可停止");
+        }
+    }
+    private void bindClickableWords(TextView target,String source){
+        SpannableStringBuilder builder=new SpannableStringBuilder(source);
+        Matcher matcher=WORD_PATTERN.matcher(source);
+        while(matcher.find()){
+            final String word=source.substring(matcher.start(),matcher.end());
+            boolean important=false;
+            for(FeedRepository.Word w:reading.words)if(w.word.equalsIgnoreCase(word)){important=true;break;}
+            final boolean tinted=important;
+            ClickableSpan span=new ClickableSpan(){
+                @Override public void onClick(View view){lookupWord(word);}
+                @Override public void updateDrawState(TextPaint paint){
+                    paint.setColor(tinted?GREEN:INK);
+                    paint.setUnderlineText(tinted);
+                    if(tinted)paint.setFakeBoldText(true);
+                }
+            };
+            builder.setSpan(span,matcher.start(),matcher.end(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        target.setText(builder);
+        target.setHighlightColor(0x558CA58F);
+        target.setMovementMethod(LinkMovementMethod.getInstance());
+    }
+    private void lookupWord(String raw){
+        final String word=raw.toLowerCase(Locale.ROOT);
+        String known="";
+        if(reading!=null)for(FeedRepository.Word w:reading.words)
+            if(w.word.equalsIgnoreCase(word)){known=w.meaning;break;}
+        final String base=known.isEmpty()?"联网查询英文释义中…":known;
+        TextView explanation=text(base,15,INK,SANS);
+        pad(explanation,23,12,23,12);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle(word)
+            .setView(explanation)
+            .setNegativeButton("关闭",null)
+            .setPositiveButton(learning.hasWord(word)?"已在生词本":"＋ 加入生词本",(dlg,which)->{
+                learning.saveWord(word,explanation.getText().toString());
+                setStatus("已收藏 "+word);
+            }).create();
+        dialog.setOnDismissListener(d->{});
+        dialog.show();
+        if(!known.isEmpty())return;
+        lookup.execute(()->{
+            String definition="暂时无法查到释义，可稍后重试";
+            HttpURLConnection conn=null;
+            try{
+                URL u=new URL("https://api.dictionaryapi.dev/api/v2/entries/en/"+word);
+                conn=(HttpURLConnection)u.openConnection();
+                conn.setConnectTimeout(5500);conn.setReadTimeout(5500);
+                if(conn.getResponseCode()==200){
+                    ByteArrayOutputStream out=new ByteArrayOutputStream();
+                    try(InputStream input=conn.getInputStream()){
+                        byte[] buf=new byte[1024];int n;
+                        while((n=input.read(buf))!=-1&&out.size()<45000)out.write(buf,0,n);
+                    }
+                    JSONArray items=new JSONArray(out.toString("UTF-8"));
+                    JSONArray meanings=items.getJSONObject(0).optJSONArray("meanings");
+                    if(meanings!=null&&meanings.length()>0){
+                        JSONObject first=meanings.getJSONObject(0);
+                        JSONArray defs=first.optJSONArray("definitions");
+                        if(defs!=null&&defs.length()>0){
+                            definition=first.optString("partOfSpeech","")+" · "+defs.getJSONObject(0).optString("definition");
+                        }
+                    }
+                }
+            }catch(Exception ignored){}
+            finally{if(conn!=null)conn.disconnect();}
+            final String result=definition;
+            main.post(()->{if(dialog.isShowing())explanation.setText(result);});
+        });
+    }
+    private void startQuiz(){
+        if(reading.words.size()<3){setStatus("本篇词汇不足三题");return;}
+        List<FeedRepository.Word> list=new ArrayList<>(reading.words);
+        Collections.shuffle(list);quizQuestion(list,0,0);
+    }
+    private void quizQuestion(List<FeedRepository.Word> list,int current,int correct){
+        if(current>=3){
+            new AlertDialog.Builder(this).setTitle("练习完成")
+                .setMessage("本次答对 "+correct+" / 3 题。继续阅读或复习生词吧。")
+                .setPositiveButton("完成",null).show();
+            return;
+        }
+        FeedRepository.Word answer=list.get(current);
+        ArrayList<String> choices=new ArrayList<>();choices.add(answer.meaning);
+        for(FeedRepository.Word other:list) {
+            if(!other.word.equals(answer.word)&&!choices.contains(other.meaning))
+                choices.add(other.meaning);
+            if(choices.size()==3)break;
+        }
+        Collections.shuffle(choices);
+        String[] options=choices.toArray(new String[0]);
+        new AlertDialog.Builder(this).setTitle("QUESTION "+(current+1)+" / 3")
+          .setMessage("「"+answer.word+"」是什么意思？")
+          .setCancelable(false)
+          .setItems(options,(dialog,index)->{
+              boolean hit=options[index].equals(answer.meaning);
+              Toast.makeText(this,hit?"✓ 正确":"答案："+answer.meaning,Toast.LENGTH_SHORT).show();
+              main.postDelayed(()->quizQuestion(list,current+1,correct+(hit?1:0)),330);
+          }).setNegativeButton("退出练习",(d,w)->{}).show();
+    }
     @Override public void onBackPressed(){
-        if(inArticle){closeArticle();return;}
-        if(tab!=0){tab=0;render();return;}
-        super.onBackPressed();
+        if(reading!=null){if(speech!=null)speech.stop();reading=null;render();return;}
+        if(activeTab!=0){switchTab(0);return;}super.onBackPressed();
     }
     @Override protected void onDestroy(){
-        destroyed=true;executor.shutdownNow();if(tts!=null){tts.stop();tts.shutdown();}
-        super.onDestroy();
-    }
-    private final class Mark extends View {
-        final String symbol;final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);final int color;
-        Mark(String s,int c){super(MainActivity.this);symbol=s;color=c;setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);}
-        @Override protected void onDraw(Canvas actual){
-            super.onDraw(actual);
-            Canvas c=actual;float scale=Math.min(getWidth(),getHeight())/24f;
-            c.save();c.translate((getWidth()-24*scale)/2,(getHeight()-24*scale)/2);c.scale(scale,scale);
-            paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.8f);
-            paint.setColor(color);paint.setStrokeCap(Paint.Cap.ROUND);paint.setStrokeJoin(Paint.Join.ROUND);
-            Path p=new Path();
-            switch(symbol){
-                case "home":
-                    p.moveTo(3,11);p.lineTo(12,4);p.lineTo(21,11);p.moveTo(5,10);p.lineTo(5,21);p.lineTo(19,21);p.lineTo(19,10);
-                    p.moveTo(10,21);p.lineTo(10,15);p.lineTo(14,15);p.lineTo(14,21);c.drawPath(p,paint);break;
-                case "book":
-                    p.moveTo(12,5);p.cubicTo(8,3,5,3,3,4);p.lineTo(3,19);p.cubicTo(7,18,10,19,12,21);
-                    p.cubicTo(14,19,17,18,21,19);p.lineTo(21,4);p.cubicTo(18,3,15,3,12,5);
-                    p.moveTo(12,5);p.lineTo(12,21);c.drawPath(p,paint);break;
-                case "layers":
-                    c.drawRoundRect(4,5,20,10,2,2,paint);c.drawRoundRect(4,14,20,19,2,2,paint);c.drawLine(12,10,12,14,paint);break;
-                case "user":
-                    c.drawCircle(12,8,4,paint);p.moveTo(4,21);p.cubicTo(4,13,20,13,20,21);c.drawPath(p,paint);break;
-                case "back":
-                    c.drawLine(19,12,5,12,paint);c.drawLine(5,12,12,5,paint);c.drawLine(5,12,12,19,paint);break;
-                case "save":
-                    p.moveTo(6,3);p.lineTo(18,3);p.lineTo(18,21);p.lineTo(12,17);p.lineTo(6,21);p.close();c.drawPath(p,paint);break;
-                case "sound":
-                    p.moveTo(4,9);p.lineTo(8,9);p.lineTo(13,5);p.lineTo(13,19);p.lineTo(8,15);p.lineTo(4,15);p.close();
-                    p.moveTo(16,9);p.quadTo(20,12,16,15);c.drawPath(p,paint);break;
-                case "refresh":
-                    p.addArc(4,4,20,20,42,282);p.moveTo(19,5);p.lineTo(20,12);p.lineTo(14,9);c.drawPath(p,paint);break;
-            }
-            c.restore();
-        }
+        if(speech!=null){speech.stop();speech.shutdown();}
+        feed.close();lookup.shutdownNow();super.onDestroy();
     }
 }
