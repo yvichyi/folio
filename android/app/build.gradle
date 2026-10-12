@@ -8,8 +8,8 @@ android {
         applicationId 'com.folio.dailyenglish.nativepreview'
         minSdk 26
         targetSdk 34
-        versionName '0.5.0-native'
-        versionCode 5
+        versionName '0.6.0-native'
+        versionCode 6
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     compileOptions {
