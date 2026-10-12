@@ -16,6 +16,8 @@ for(const [index,item] of data.items.entries()){
  if(item.title.length>400 || item.source.length>90 || item.summary.length>1000) fail('length '+index);
  if(!Number.isFinite(Date.parse(item.date)) || Date.parse(item.date)>Date.now()+86400000) fail('date '+index);
  if(item.editorNote && (typeof item.editorNote!=='string' || item.editorNote.length>1200)) fail('editorNote');
+ if(typeof item.readingText!=='string' || item.readingText.trim().split(/\s+/).length<150 || item.readingText.length>5000) fail('readingText');
+ if(typeof item.discussionQuestion!=='string' || !item.discussionQuestion.trim() || item.discussionQuestion.length>500) fail('discussionQuestion');
  if(item.vocabulary){
   if(!Array.isArray(item.vocabulary) || item.vocabulary.length>12) fail('vocabulary');
   for(const v of item.vocabulary){
