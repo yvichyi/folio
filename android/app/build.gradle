@@ -8,11 +8,27 @@ android {
         applicationId 'com.folio.dailyenglish'
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName '0.3.0'
+        versionCode 4
+        versionName '0.4.0'
+    }
+    buildTypes {
+        debug {
+            // Install alongside the older WebView preview; avoid replacing a differently signed APK.
+            applicationIdSuffix '.nativepreview'
+            versionNameSuffix '-native-preview'
+        }
+        release {
+            minifyEnabled false
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
 }
