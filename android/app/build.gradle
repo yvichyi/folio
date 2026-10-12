@@ -9,26 +9,10 @@ android {
         minSdk 26
         targetSdk 34
         versionCode 4
-        versionName '0.4.0'
-    }
-    buildTypes {
-        debug {
-            // Install alongside the older WebView preview; avoid replacing a differently signed APK.
-            applicationIdSuffix '.nativepreview'
-            versionNameSuffix '-native-preview'
-        }
-        release {
-            minifyEnabled false
-        }
+        versionName '0.4.0-native'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    testOptions {
-        unitTests.returnDefaultValues = true
-    }
-}
-dependencies {
-    testImplementation 'junit:junit:4.13.2'
 }
