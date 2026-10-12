@@ -6,6 +6,26 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n com.folio.dailyenglish.nativepreview/com.folio.dailyenglish.MainActivity
 sleep 10
 adb shell pidof com.folio.dailyenglish.nativepreview
+python3 - <<'PY'
+import re,subprocess,time,xml.etree.ElementTree as ET
+for attempt in range(4):
+    subprocess.run(['adb','shell','uiautomator','dump','/sdcard/dialog-check.xml'],
+                   stdout=subprocess.DEVNULL,check=True)
+    subprocess.run(['adb','pull','/sdcard/dialog-check.xml','native-witness/dialog-check.xml'],
+                   stdout=subprocess.DEVNULL,check=True)
+    root=ET.parse('native-witness/dialog-check.xml').getroot()
+    names=[node.attrib.get('text','') for node in root.iter('node')]
+    if not any("Pixel Launcher isn't responding" in name for name in names):
+        break
+    button=next((node for node in root.iter('node') if node.attrib.get('text')=='Close app'),None)
+    if button is None: raise SystemExit('Unhandled system dialog')
+    points=[int(s) for s in re.findall(r'\d+',button.attrib.get('bounds',''))]
+    subprocess.run(['adb','shell','input','tap',str((points[0]+points[2])//2),
+                    str((points[1]+points[3])//2)],check=True)
+    time.sleep(3)
+else:
+    raise SystemExit('Android launcher remains unresponsive')
+PY
 adb shell screencap -p /sdcard/folio-home.png
 adb pull /sdcard/folio-home.png native-witness/home.png
 adb shell uiautomator dump /sdcard/folio-ui.xml
