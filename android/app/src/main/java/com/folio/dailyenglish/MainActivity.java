@@ -76,6 +76,8 @@ public final class MainActivity extends Activity {
     private FeedRepository.Article reading;
     private boolean busy=false;
     private ProgressBar readingProgress;
+    private int nextMotion=0;
+    private int tabDirection=1;
     private ScrollView readerScroll;
 
     @Override public void onCreate(Bundle state){
@@ -134,7 +136,9 @@ public final class MainActivity extends Activity {
     private TextView action(String title,boolean filled,Runnable run) {
         TextView b=text(title,13,filled?Color.WHITE:GREEN,SANS_MED);
         b.setGravity(Gravity.CENTER);b.setMinHeight(d(44));pad(b,17,11,17,11);
-        surface(b,filled?GREEN:SOFT,13,false);b.setOnClickListener(v->run.run());
+        surface(b,filled?GREEN:SOFT,13,false);
+        FolioMotion.attachPress(b);
+        b.setOnClickListener(v->run.run());
         return b;
     }
     private void addDivider(LinearLayout col){
@@ -154,9 +158,14 @@ public final class MainActivity extends Activity {
             navbar=bottomNavigation();outer.addView(navbar,lp(-1,76));
         }
         setContentView(outer);
+        final int motion=nextMotion;
+        nextMotion=0;
+        if(motion!=0)FolioMotion.enter(body,motion,tabDirection);
     }
     private void switchTab(int tab){
         if(tab==activeTab&&reading==null)return;
+        tabDirection=tab>=activeTab?1:-1;
+        nextMotion=1;
         activeTab=tab;reading=null;render();
     }
     private LinearLayout bottomNavigation(){
@@ -177,7 +186,12 @@ public final class MainActivity extends Activity {
             if(selected){View rule=new View(this);rule.setBackground(shape(GREEN,4));item.addView(rule,lp(15,3));}
             else item.addView(new View(this),lp(15,3));
             surface(item,BG,11,false);
+            FolioMotion.attachPress(item);
             item.setOnClickListener(v->switchTab(tab));
+            if(selected && nextMotion==1 && FolioMotion.enabled()) {
+                icon.setScaleX(.86f);icon.setScaleY(.86f);
+                icon.animate().scaleX(1f).scaleY(1f).setDuration(220).start();
+            }
             bar.addView(item,new LinearLayout.LayoutParams(0,-1,1));
         }
         wrap.addView(bar,lp(-1,75));return wrap;
@@ -322,6 +336,7 @@ public final class MainActivity extends Activity {
         surface(card,PANEL,17,true);
         card.setClickable(true);card.setFocusable(true);
         card.setContentDescription("阅读 "+a.title);
+        FolioMotion.attachPress(card);
         card.setOnClickListener(v->openArticle(a));
         LinearLayout meta=row();
         TextView cat=caption(a.topic+" / "+a.source.toUpperCase(Locale.ENGLISH));
@@ -490,12 +505,13 @@ public final class MainActivity extends Activity {
     }
     private void openArticle(FeedRepository.Article a){
         archive.ingest(java.util.Collections.singletonList(a));
+        nextMotion=2;
         reading=a;render();
     }
     private void renderReader(){
         LinearLayout toolbar=row();pad(toolbar,15,9,16,9);
         toolbar.setBackgroundColor(BG);
-        TextView back=action("‹",false,()->{reading=null;render();});
+        TextView back=action("‹",false,()->{reading=null;nextMotion=3;render();});
         back.setTextSize(29);back.setContentDescription("返回文章列表");
         toolbar.addView(back,lp(48,45));
         TextView room=caption("THE READING ROOM");room.setGravity(Gravity.CENTER);
@@ -507,6 +523,7 @@ public final class MainActivity extends Activity {
             learning.bookmark(reading.url,selected);
             star.setText(selected?"◆":"◇");
             star.setContentDescription(selected?"取消收藏":"收藏文章");
+            FolioMotion.bookmark(star);
             setStatus(selected?"已收藏文章":"已取消收藏");
         });
         star.setTextSize(23);star.setContentDescription(fav?"取消收藏":"收藏文章");
@@ -520,7 +537,7 @@ public final class MainActivity extends Activity {
         ScrollView sc=scroll(body);readerScroll=sc;LinearLayout col=screenContent(sc);
         sc.setOnScrollChangeListener((View.OnScrollChangeListener)(view,x,y,oldX,oldY)->{
             int maximum=Math.max(1,sc.getChildAt(0).getHeight()-sc.getHeight());
-            readingProgress.setProgress(Math.max(0,Math.min(100,100*y/maximum)));
+            readingProgress.setProgress(Math.max(0,Math.min(100,100*y/maximum)),true);
         });
         col.addView(caption(reading.topic.toUpperCase(Locale.ENGLISH)+"  /  "+reading.source.toUpperCase(Locale.ENGLISH)));
         gap(col,21);
@@ -801,7 +818,7 @@ public final class MainActivity extends Activity {
           }).setNegativeButton("退出练习",(d,w)->{}).show();
     }
     @Override public void onBackPressed(){
-        if(reading!=null){if(speech!=null)speech.stop();reading=null;render();return;}
+        if(reading!=null){if(speech!=null)speech.stop();reading=null;nextMotion=3;render();return;}
         if(activeTab!=0){switchTab(0);return;}super.onBackPressed();
     }
     @Override protected void onDestroy(){
