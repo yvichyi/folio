@@ -1,5 +1,20 @@
 # Folio · 每日英语外刊
 
+## Android Native Preview v0.5 · October 12, 2026
+
+This release addresses the main product-retention defect, rather than simply adding another screen:
+
+- `ArticleArchive` persists full learning-article snapshots in private on-device SQLite, keyed by canonical article URL. A daily issue refresh **upserts** the new article snapshots; it does not wipe older content. The Library reads the archive, including older bookmarked and completed stories.
+- On first launch after upgrade, the currently cached issue (or bundled dated seed) is migrated into SQLite. **Content discarded by much older builds cannot be reconstructed retroactively.**
+- Bookmarking, saving a curated word and marking an article complete no longer throw the reader back to the top. Font changes attempt to keep proportional reading position.
+- Tapping a word opens a themed native bottom vocabulary sheet. A failed external-dictionary request does not get saved as a bogus definition.
+- The Android UI smoke test uses an actual emulator. Instrumentation regression tests explicitly swap daily issues, reopen the SQLite database, verify both records remain, check deduplication and an empty update. See [Folio Native UI Smoke](../../actions/workflows/native-ui-smoke.yml) for the latest observed result.
+
+**Limits:** This is still a debug-signed preview, not a production release. Signing keys may differ across builds; do not uninstall the previous app assuming learning data will survive. Archived data is local to the installed app, not synced across devices. Reliable import/export, stable private release signing, long archive-list virtualization, and full reader/touch/accessibility acceptance are future release gates. These limitations are not solved by a successful APK build.
+
+---
+
+
 A personal English-reading application with two separate clients sharing one live editorial feed.
 
 ## Android Native Preview · v0.4.0
