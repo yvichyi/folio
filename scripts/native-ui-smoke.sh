@@ -30,6 +30,59 @@ adb shell screencap -p /sdcard/folio-home.png
 adb pull /sdcard/folio-home.png native-witness/home.png
 adb shell uiautomator dump /sdcard/folio-ui.xml
 adb pull /sdcard/folio-ui.xml native-witness/home-ui.xml
+# End-to-end native journey: open story -> bookmark -> return -> find it in Library.
+python3 - <<'PY'
+import xml.etree.ElementTree as ET,re,subprocess
+root=ET.parse('native-witness/home-ui.xml').getroot()
+card=next((n for n in root.iter('node') if n.attrib.get('content-desc','').startswith('阅读 ')),None)
+if card is None: raise SystemExit('First editorial card not reachable')
+points=list(map(int,re.findall(r'\d+',card.attrib.get('bounds',''))))
+subprocess.run(['adb','shell','input','tap',str((points[0]+points[2])//2),
+                str((points[1]+points[3])//2)],check=True)
+PY
+sleep 2
+adb shell screencap -p /sdcard/folio-reader.png
+adb pull /sdcard/folio-reader.png native-witness/reader.png
+adb shell uiautomator dump /sdcard/folio-reader.xml
+adb pull /sdcard/folio-reader.xml native-witness/reader-ui.xml
+python3 - <<'PY'
+import xml.etree.ElementTree as ET,re,subprocess
+root=ET.parse('native-witness/reader-ui.xml').getroot()
+texts=[n.attrib.get('text','') for n in root.iter('node')]
+if not any('THE READING ROOM' in t for t in texts):
+    raise SystemExit('Reader did not open')
+save=next((n for n in root.iter('node') if n.attrib.get('content-desc','')=='收藏文章'),None)
+if save is None: raise SystemExit('Bookmark action missing')
+points=list(map(int,re.findall(r'\d+',save.attrib.get('bounds',''))))
+subprocess.run(['adb','shell','input','tap',str((points[0]+points[2])//2),
+                str((points[1]+points[3])//2)],check=True)
+PY
+adb shell input keyevent KEYCODE_BACK
+sleep 1
+python3 - <<'PY'
+import re,xml.etree.ElementTree as ET,subprocess
+root=ET.parse('native-witness/home-ui.xml').getroot()
+tab=next((n for n in root.iter('node') if n.attrib.get('content-desc','')=='收藏选项卡'),None)
+if tab is None: raise SystemExit('Library tab missing')
+pts=list(map(int,re.findall(r'\d+',tab.attrib['bounds'])))
+subprocess.run(['adb','shell','input','tap',str((pts[0]+pts[2])//2),
+                str((pts[1]+pts[3])//2)],check=True)
+PY
+sleep 2
+adb shell screencap -p /sdcard/folio-library.png
+adb pull /sdcard/folio-library.png native-witness/library.png
+adb shell uiautomator dump /sdcard/folio-library.xml
+adb pull /sdcard/folio-library.xml native-witness/library-ui.xml
+python3 - <<'PY'
+import xml.etree.ElementTree as ET
+root=ET.parse('native-witness/library-ui.xml').getroot()
+texts=[n.attrib.get('text','') for n in root.iter('node')]
+if '已收藏的文章' not in texts or not any('UK to strengthen cyber' in t for t in texts):
+    raise SystemExit('Bookmarked story absent from Library: '+repr(texts[:30]))
+print('Editorial card -> reader -> bookmark -> library PASS')
+PY
+adb shell input keyevent KEYCODE_BACK
+sleep 1
 python3 - <<'PY'
 import re,subprocess,xml.etree.ElementTree as ET
 root=ET.parse('native-witness/home-ui.xml').getroot()
